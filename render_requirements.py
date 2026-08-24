@@ -55,6 +55,53 @@ def _evidence(items: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+def _dashboard(reports: dict[str, dict[str, Any]]) -> list[str]:
+    business = reports["business"]
+    data = reports["data"]
+    api = reports["api"]
+    nfr = reports["nfr"]
+    acceptance = reports["acceptance"]
+    entity_mappings = data.get("entity_mappings", [])
+    unresolved = sum(
+        len(report.get("unresolved_questions", [])) for report in reports.values()
+    )
+    counts = (
+        ("Business rules", len(business.get("rules", []))),
+        ("User journeys", len(business.get("user_journeys", []))),
+        ("Entity mappings", len(entity_mappings)),
+        ("Field mappings", sum(len(item.get("fields", [])) for item in entity_mappings)),
+        ("SQL conversions", len(data.get("sql_conversions", []))),
+        ("API contracts", len(api.get("api_contracts", []))),
+        ("Events", len(api.get("events", []))),
+        ("Non-functional requirements", len(nfr.get("requirements", []))),
+        ("Acceptance criteria", len(acceptance.get("criteria", []))),
+        ("Unresolved questions", unresolved),
+    )
+    lines = [
+        "## Extraction dashboard",
+        "",
+        "| Artifact | Extracted |",
+        "|---|---:|",
+    ]
+    lines.extend(f"| {name} | {count} |" for name, count in counts)
+    lines += ["", "### Confidence", "", "| Report | Confidence |", "|---|---:|"]
+    confidence_names = (
+        ("Architecture", "architecture"),
+        ("Dependencies", "dependencies"),
+        ("Business rules", "business"),
+        ("Data mapping", "data"),
+        ("API and events", "api"),
+        ("Non-functional", "nfr"),
+        ("Acceptance criteria", "acceptance"),
+    )
+    lines.extend(
+        f"| {name} | {reports[key].get('confidence', 'unknown')} |"
+        for name, key in confidence_names
+    )
+    lines.append("")
+    return lines
+
+
 def _architecture(report: dict[str, Any]) -> list[str]:
     lines = ["## 1. System overview", "", report["summary"], ""]
     lines += ["### Architectural styles", ""]
@@ -239,6 +286,7 @@ def render(reports: dict[str, dict[str, Any]]) -> str:
         "Inferred findings still require human review.",
         "",
     ]
+    lines += _dashboard(reports)
     lines += _architecture(reports["architecture"])
     lines += _dependencies(reports["dependencies"])
     lines += _business(reports["business"])

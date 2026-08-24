@@ -176,6 +176,9 @@ outputs/requirements_report.md
 ```
 
 The Markdown report combines the validated artifacts without another model call.
+It begins with an extraction dashboard showing counts and confidence scores for
+business rules, user journeys, mappings, SQL conversions, APIs, events, NFRs,
+acceptance criteria, and unresolved questions.
 
 ## Run tests
 
