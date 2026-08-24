@@ -1,0 +1,363 @@
+{
+  "summary": "This repository contains a strangler-fig migration from legacy ASP.NET MVC5/WebAPI2 (.NET Framework 4.7.2) to ASP.NET Core 2.2 (targeting net461), both implementing a catalog e-commerce application. The architecture uses layered design with controllers, services, and EF-based data access. The codebase exhibits significant technical debt: the ported application still targets net461 despite using ASP.NET Core packages, BinaryFormatter-based serialization is used for API payloads (a security risk), EF Core 2.2 is outdated, dependency versions diverge between projects, and critical telemetry/monitoring was not ported from legacy to new application. The migration is incomplete, indicated by mixed package management (packages.config + PackageReference) and duplicated logic across both implementations.",
+  "requirements": [
+    {
+      "requirement_id": "NFR-001",
+      "category": "security",
+      "statement": "Eliminate use of BinaryFormatter for serialization of API payloads in eShopLegacy.Utilities and Web API endpoints, replacing with secure serialization (e.g., System.Text.Json or Newtonsoft.Json over HTTP).",
+      "basis": "observed",
+      "priority": "high",
+      "measurable_target": null,
+      "verification_method": "Code review confirming removal of BinaryFormatter from Serializing.cs and all Web API controllers; automated security scanning for deprecated serialization patterns.",
+      "evidence": [
+        {
+          "source_path": "eShopLegacy.Utilities/Serializing.cs",
+          "observation": "SerializeBinary and DeserializeBinary methods use System.Runtime.Serialization.Formatters.Binary.BinaryFormatter, which is deprecated and vulnerable to deserialization attacks.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Controllers/Api/FilesController.cs",
+          "observation": "FilesController.Index calls Serializing.SerializeBinary(brands) and returns raw stream over HTTP, transmitting binary-serialized objects.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/WebApi/FilesController.cs",
+          "observation": "Legacy FilesController.Get similarly serializes BrandDTO objects via SerializeBinary before returning over HTTP.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-002",
+      "category": "security",
+      "statement": "Resolve Autofac version mismatch between packages.config (4.9.1), eShopLegacyMVC.csproj PackageReference (6.1.0), and Web.config bindingRedirect (6.1.0.0) to ensure consistent assembly resolution.",
+      "basis": "observed",
+      "priority": "high",
+      "measurable_target": null,
+      "verification_method": "Verify all Autofac references across packages.config, csproj, and Web.config declare the same version; test DI container initialization in both legacy and ported applications.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/packages.config",
+          "observation": "package id='Autofac' version='4.9.1' targetFramework='net472'",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "PackageReference Include='Autofac' Version='6.1.0'",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Web.config",
+          "observation": "bindingRedirect assemblyIdentity name='Autofac' newVersion='6.1.0.0'",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-003",
+      "category": "maintainability",
+      "statement": "Complete migration from packages.config to PackageReference format in eShopLegacyMVC, removing all duplicate Reference/HintPath entries that coexist with PackageReference declarations.",
+      "basis": "observed",
+      "priority": "high",
+      "measurable_target": null,
+      "verification_method": "Verify eShopLegacyMVC.csproj contains only PackageReference entries (no duplicate Reference/HintPath); packages.config is deleted; build completes without ambiguous assembly resolution warnings.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "Contains both PackageReference Include='EntityFramework' Version='6.2.0' and Reference Include='EntityFramework...' HintPath to packages folder for the same dependency.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/packages.config",
+          "observation": "Legacy packages.config file still present with 40 package declarations alongside modern PackageReference entries.",
+          "symbol": null
+        },
+        {
+          "source_path": "Convert-ToPackageReference.ps1",
+          "observation": "Repository includes a PowerShell script for automating packages.config to PackageReference conversion, indicating incomplete migration.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-004",
+      "category": "deployment",
+      "statement": "Retarget eShopPorted.csproj from net461 to a supported .NET (Core) target framework (e.g., net6.0 or net8.0) to enable genuine ASP.NET Core modernization and cross-platform deployment.",
+      "basis": "observed",
+      "priority": "high",
+      "measurable_target": null,
+      "verification_method": "TargetFramework element in eShopPorted.csproj updated to net6.0 or later; ASP.NET Core and EF Core packages upgraded to versions compatible with new TFM; application builds and runs on non-Windows platforms.",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "TargetFramework is net461 despite using Sdk='Microsoft.NET.Sdk.Web' and ASP.NET Core 2.2.0 packages designed for netcoreapp.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Startup.cs",
+          "observation": "Startup.cs uses IWebHostBuilder, Kestrel middleware, and dependency injection patterns specific to ASP.NET Core, yet project targets .NET Framework net461.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-005",
+      "category": "performance",
+      "statement": "Upgrade Microsoft.EntityFrameworkCore from 2.2.6 to a current LTS version (6.0 or 8.0) in eShopPorted to benefit from performance improvements and query optimization enhancements.",
+      "basis": "observed",
+      "priority": "high",
+      "measurable_target": null,
+      "verification_method": "EF Core package version updated; run database query performance benchmarks; verify no query behavior regression; validate ORM-specific features work correctly.",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference Microsoft.EntityFrameworkCore Version='2.2.6', which reached end of support in Dec 2019.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Models/CatalogDBContext.cs",
+          "observation": "EF Core DbContext using ApplyConfigurationsFromAssembly pattern compatible with newer EF Core versions.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-006",
+      "category": "observability",
+      "statement": "Port Microsoft Application Insights telemetry configuration from eShopLegacyMVC to eShopPorted (or replace with equivalent observability framework) to maintain operational visibility across both applications during strangler-fig cutover.",
+      "basis": "observed",
+      "priority": "high",
+      "measurable_target": null,
+      "verification_method": "eShopPorted.csproj includes Microsoft.ApplicationInsights.AspNetCore (or OpenTelemetry equivalent); ApplicationInsights configuration present in Startup.cs; telemetry events logged for key application flows; data flows to Application Insights workspace.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/ApplicationInsights.config",
+          "observation": "Full Application Insights instrumentation with TelemetryInitializers, TelemetryModules, and adaptive sampling configured for legacy app.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "Multiple Microsoft.ApplicationInsights.* NuGet package references (Web, DependencyCollector, PerfCounterCollector, WindowsServer, Agent.Intercept).",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "No Microsoft.ApplicationInsights.* or equivalent telemetry package present in ported application.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-007",
+      "category": "data_integrity",
+      "statement": "Standardize Newtonsoft.Json dependency version across eShopLegacyMVC (12.0.1) and eShopPorted (13.0.2) to 13.0.2 to ensure consistent JSON serialization behavior for shared data contracts and API payloads.",
+      "basis": "observed",
+      "priority": "medium",
+      "measurable_target": null,
+      "verification_method": "Both eShopLegacyMVC.csproj and eShopPorted.csproj reference Newtonsoft.Json 13.0.2; Web.config bindingRedirect updated to 13.0.0.0; integration tests verify JSON payloads serialize/deserialize identically across both projects.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "PackageReference Newtonsoft.Json Version='12.0.1'",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Web.config",
+          "observation": "bindingRedirect oldVersion='0.0.0.0-12.0.0.0' newVersion='12.0.0.0'",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference Newtonsoft.Json Version='13.0.2'",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-008",
+      "category": "maintainability",
+      "statement": "Remove WebGrease (1.6.0) and Antlr (3.5.0.2) dependencies from eShopPorted.csproj, as System.Web.Optimization bundling is not used in ASP.NET Core projects.",
+      "basis": "observed",
+      "priority": "medium",
+      "measurable_target": null,
+      "verification_method": "eShopPorted.csproj has no WebGrease or Antlr PackageReference entries; verify application still builds and runs; client asset bundling is handled by alternative pipeline if needed.",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference WebGrease Version='1.6.0' and PackageReference Antlr Version='3.5.0.2' both present with no corresponding BundleConfig or System.Web.Optimization usage.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/App_Start/BundleConfig.cs",
+          "observation": "Only the legacy project contains BundleConfig.cs using System.Web.Optimization bundles.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-009",
+      "category": "maintainability",
+      "statement": "Consolidate duplicated catalog service implementations, models, and DI modules from src/eShopLegacyMVC and eShopPorted into a single codebase or establish a clear feature-branch cutover date to minimize maintenance burden and reduce divergence risk.",
+      "basis": "inferred",
+      "priority": "high",
+      "measurable_target": null,
+      "verification_method": "Strangler-fig migration plan documented with cutover date; feature flags in place to route traffic; automated tests verify behavioral equivalence across both implementations; legacy app deprecated after cutover date.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Services/CatalogService.cs",
+          "observation": "CatalogService implementation nearly identical to eShopPorted/Services/CatalogService.cs except for HiLo generator call.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Services/CatalogService.cs",
+          "observation": "Ported CatalogService uses EF Core native ID generation; manually maintaining two implementations increases divergence risk.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Modules/ApplicationModule.cs",
+          "observation": "Autofac DI module for ported app mirrors src/eShopLegacyMVC/Modules/ApplicationModule.cs with same structure and registration logic.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-010",
+      "category": "security",
+      "statement": "Update all NuGet packages in eShopLegacyMVC and eShopPorted to versions that have active security patching; replace end-of-support frameworks (ASP.NET MVC 5.2.7, Web API 5.2.7, EF 6.2.0, ASP.NET Core 2.2.0) with modern equivalents.",
+      "basis": "observed",
+      "priority": "high",
+      "measurable_target": null,
+      "verification_method": "Dependency audit tool reports zero high/critical vulnerabilities; all packages have release dates within past 18 months; security scanning passes; application successfully upgrades to LTS versions of .NET, ASP.NET Core, EF Core, and supporting libraries.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "References Microsoft.AspNet.Mvc 5.2.7, Microsoft.AspNet.WebApi 5.2.7, EntityFramework 6.2.0 \u2014 all out of active support.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "References Microsoft.AspNetCore 2.2.0 and Microsoft.EntityFrameworkCore 2.2.6 \u2014 both reached end of support in Dec 2019.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/packages.config",
+          "observation": "Package versions pinned to 2020-2021 timeframes; many packages are 2+ years old with unpatched vulnerabilities.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-011",
+      "category": "observability",
+      "statement": "Establish logging consistency across legacy (log4net) and ported (log4net) applications by verifying both use identical log4net version (2.0.10) and configuration patterns; ensure cutover does not introduce observability blind spots.",
+      "basis": "observed",
+      "priority": "medium",
+      "measurable_target": null,
+      "verification_method": "Both projects reference log4net 2.0.10; log4net configuration files present in both; structured logging is captured consistently; log files/streams unified during cutover.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "PackageReference log4net Version='2.0.10'",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference log4net Version='2.0.10' \u2014 identical version to legacy app.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/log4Net.xml",
+          "observation": "RollingFileAppender configuration for application logging present only in legacy project.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "requirement_id": "NFR-012",
+      "category": "data_integrity",
+      "statement": "Migrate from raw SQL HiLo sequence queries (CatalogItemHiLoGenerator) in legacy EF6 to EF Core native value generation strategy (ValueGeneratedOnAdd with SqlServer IDENTITY) in ported application to ensure portability and simplify ID generation logic.",
+      "basis": "observed",
+      "priority": "medium",
+      "measurable_target": null,
+      "verification_method": "Raw SQL queries removed from CatalogItemHiLoGenerator; EF Core migration files reflect HasValueGenerator for CatalogItem.Id using IDENTITY or HiLo without raw SQL; functional tests verify ID sequences are monotonically increasing and consistent.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+          "observation": "Executes 'SELECT NEXT VALUE FOR catalog_hilo' raw SQL query, bypassing EF abstraction.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_hilo.Sequence.sql",
+          "observation": "Raw SQL sequence object defined outside EF Code First migration.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Migrations/20201130044339_Initial.cs",
+          "observation": "EF Core migration already uses SqlServer:ValueGenerationStrategy IdentityColumn for catalog IDs, not HiLo.",
+          "symbol": null
+        }
+      ]
+    }
+  ],
+  "gaps": [
+    "No documented cutover plan or feature-flag strategy for strangler-fig migration",
+    "Unclear which application (legacy or ported) is considered the source of truth for ongoing development",
+    "No reconciliation plan for seed/preconfigured data between CatalogDBInitializer and EF Core PreconfiguredData",
+    "Mock service selection logic (UseMockData flag) not explicitly wired in DI modules \u2014 conditional logic not evident",
+    "No explicit acceptance criteria or test plan for feature equivalence between legacy and ported applications",
+    "Telemetry cutover strategy not documented \u2014 how will observability be maintained during migration?",
+    "Database migration strategy unclear \u2014 will dual-write or read-write consistency checks be employed during cutover?"
+  ],
+  "unresolved_questions": [
+    "Is the eShopPorted application intended to be run on .NET Framework net461 or was the TargetFramework not updated during migration?",
+    "How are database schema changes coordinated between legacy EF6 migrations and ported EF Core migrations during the strangler-fig phase?",
+    "Does the UseMockData flag in appsettings.json route to CatalogServiceMock conditionally, and if so, where is that logic implemented?",
+    "Are there integration tests comparing behavioral equivalence between legacy and ported catalog service implementations?",
+    "Will both applications run simultaneously during cutover, and if so, how is data consistency maintained?",
+    "Is there a rollback plan documented if the ported application experiences production issues post-cutover?",
+    "Why does eShopPorted still reference System.Web.Mvc and System.Web.Optimization packages if it is truly an ASP.NET Core application?"
+  ],
+  "source_files_read": [
+    "eShopPorted/Properties/launchSettings.json",
+    "eShopPorted/Views/Web.config",
+    "eShopPorted/app.config",
+    "eShopPorted/appsettings.Development.json",
+    "eShopPorted/appsettings.json",
+    "src/eShopLegacyMVC/ApplicationInsights.config",
+    "src/eShopLegacyMVC/Views/Web.config",
+    "src/eShopLegacyMVC/Web.Debug.config",
+    "src/eShopLegacyMVC/Web.Release.config",
+    "src/eShopLegacyMVC/Web.config",
+    "src/eShopLegacyMVC/log4Net.xml",
+    "src/eShopLegacyMVC/packages.config",
+    "eShopLegacy.Utilities/eShopLegacy.Utilities.csproj",
+    "eShopLegacyMVC.sln",
+    "eShopPorted/eShopPorted.csproj",
+    "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+    "eShopPorted/Services/CatalogService.cs",
+    "eShopPorted/Services/CatalogServiceMock.cs",
+    "eShopPorted/Services/ICatalogService.cs",
+    "src/eShopLegacyMVC/Services/CatalogService.cs",
+    "src/eShopLegacyMVC/Services/CatalogServiceMock.cs",
+    "src/eShopLegacyMVC/Services/ICatalogService.cs",
+    "eShopPorted/Controllers/Api/BrandsController.cs",
+    "eShopPorted/Controllers/Api/FilesController.cs",
+    "eShopPorted/Controllers/CatalogController.cs",
+    "eShopPorted/Controllers/PicController.cs",
+    "src/eShopLegacyMVC/Controllers/Api/CatalogController.cs",
+    "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+    "src/eShopLegacyMVC/Controllers/PicController.cs",
+    "src/eShopLegacyMVC/Controllers/WebApi/BrandsController.cs",
+    "src/eShopLegacyMVC/Controllers/WebApi/FilesController.cs",
+    "eShopLegacy.Utilities/Properties/AssemblyInfo.cs",
+    "eShopLegacy.Utilities/Serializing.cs",
+    "eShopPorted/Migrations/20201130044339_Initial.Designer.cs",
+    "eShopPorted/Migrations/20201130044339_Initial.cs",
+    "eShopPorted/Modules/ApplicationModule.cs",
+    "eShopPorted/Program.cs",
+    "eShopPorted/Startup.cs",
+    "src/eShopLegacyMVC/App_Start/BundleConfig.cs",
+    "src/eShopLegacyMVC/App_Start/FilterConfig.cs"
+  ],
+  "confidence": 0.72
+}

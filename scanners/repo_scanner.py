@@ -21,6 +21,7 @@ IGNORE_DIRS = {
     "packages",
     "node_modules",
     ".vs",
+    "graphify-out",
 }
 
 
@@ -68,7 +69,7 @@ def scan_repository(repo_path: str) -> dict:
         raise FileNotFoundError(f"Repository not found: {repo}")
 
     inventory = {
-        "repository": str(repo),
+        "repository": str(Path(repo_path)),
         "total_files": 0,
         "categories": {}
     }

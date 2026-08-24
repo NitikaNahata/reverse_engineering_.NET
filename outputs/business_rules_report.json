@@ -1,0 +1,561 @@
+{
+  "summary": "The eShop Modernizing repository contains a parallel ASP.NET MVC5/WebAPI2 legacy application (src/eShopLegacyMVC) and an ASP.NET Core 2.2 ported application (eShopPorted), both implementing a product catalog CRUD system with shared utility classes. Key business rules extracted include mandatory name/price fields, price range restrictions (0\u20131,000,000), stock management thresholds, pagination logic, identifier generation via HiLo sequences (legacy only), picture URI construction, and mock/real service selection via configuration flags. Two primary user journeys are identified: catalog browsing with pagination and catalog item CRUD operations. The extraction is constrained by incomplete evidence on some business conditions (e.g., reorder logic triggers, validation error handling specifics) and duplicate/divergent implementations across the two codebases.",
+  "rules": [
+    {
+      "rule_id": "BR-001",
+      "title": "Catalog Item Price Validation",
+      "description": "CatalogItem.Price must be a positive decimal with maximum two decimal places and must fall within the range [0, 1,000,000]. A RegularExpression validation attribute enforces the format constraint.",
+      "category": "validation",
+      "basis": "explicit",
+      "conditions": [
+        "CatalogItem.Price property is being set or updated",
+        "Price value is submitted through Create or Edit form"
+      ],
+      "outcomes": [
+        "Price is validated against the regex pattern ^\\d+(\\.\\d{0,2})*$",
+        "If validation fails, error message returned: 'The field Price must be a positive number with maximum two decimals.'",
+        "If validation passes, price is persisted to the database"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "CatalogItem.Price decorated with [RegularExpression(@\"^\\d+(\\.\\d{0,2})*$\", ErrorMessage = \"The field Price must be a positive number with maximum two decimals.\")] and [Range(0, 1000000)]",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+          "observation": "Identical Price validation constraints present in legacy model",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-002",
+      "title": "Stock Availability Range Constraint",
+      "description": "CatalogItem.AvailableStock must be a non-negative integer in the range [0, 10,000,000]. A Range attribute enforces this constraint.",
+      "category": "validation",
+      "basis": "explicit",
+      "conditions": [
+        "AvailableStock property is set during Create or Edit"
+      ],
+      "outcomes": [
+        "If AvailableStock < 0 or > 10,000,000, validation error returned: 'The field Stock must be between 0 and 10 million.'",
+        "If valid, AvailableStock is persisted"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "[Range(0, 10000000, ErrorMessage = \"The field Stock must be between 0 and 10 million.\")] applied to AvailableStock property",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+          "observation": "Identical constraint in legacy codebase",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-003",
+      "title": "Restock Threshold Range Validation",
+      "description": "CatalogItem.RestockThreshold must be a non-negative integer between 0 and 10,000,000, enforced by a Range attribute.",
+      "category": "validation",
+      "basis": "explicit",
+      "conditions": [
+        "RestockThreshold is being modified"
+      ],
+      "outcomes": [
+        "If RestockThreshold outside [0, 10000000], error 'The field Restock must be between 0 and 10 million.' is raised",
+        "If valid, RestockThreshold is saved"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "[Range(0, 10000000, ErrorMessage = \"The field Restock must be between 0 and 10 million.\")] on RestockThreshold",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-004",
+      "title": "Max Stock Threshold Limit",
+      "description": "CatalogItem.MaxStockThreshold must be a non-negative integer between 0 and 10,000,000 due to physical/logistical warehouse constraints.",
+      "category": "constraint",
+      "basis": "explicit",
+      "conditions": [
+        "MaxStockThreshold property is modified"
+      ],
+      "outcomes": [
+        "If outside [0, 10000000], error raised: 'The field Max stock must be between 0 and 10 million.'",
+        "If valid, constraint is satisfied and value persisted"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "[Range(0, 10000000, ErrorMessage = \"The field Max stock must be between 0 and 10 million.\")] on MaxStockThreshold property",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+          "observation": "Identical constraint in legacy implementation",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-005",
+      "title": "Catalog Item Name Required Field",
+      "description": "CatalogItem.Name is mandatory and must not be null or empty. Maximum length is 50 characters.",
+      "category": "validation",
+      "basis": "explicit",
+      "conditions": [
+        "CatalogItem.Name is null, empty, or exceeds 50 characters"
+      ],
+      "outcomes": [
+        "Validation fails and name is required to proceed with Create/Edit",
+        "Error message indicates name is required"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "[Required] and [MaxLength(50)] attributes on Name property",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+          "observation": "Same constraints in legacy codebase",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-006",
+      "title": "Picture File Name Required",
+      "description": "CatalogItem.PictureFileName is required and must have a value. Default value is 'dummy.png' if not explicitly set during construction.",
+      "category": "validation",
+      "basis": "explicit",
+      "conditions": [
+        "CatalogItem is created or updated without PictureFileName"
+      ],
+      "outcomes": [
+        "If no PictureFileName provided, default 'dummy.png' is assigned in constructor",
+        "PictureFileName is required for database persistence"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "Constructor sets PictureFileName = DefaultPictureName ('dummy.png') if not provided; [Required] attribute enforces persistence",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+          "observation": "Identical behavior in legacy model",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-007",
+      "title": "Pagination of Catalog Items",
+      "description": "Catalog items are retrieved in paginated batches. Each page is defined by pageSize and pageIndex parameters. Total item count is calculated for pagination UI.",
+      "category": "business logic",
+      "basis": "explicit",
+      "conditions": [
+        "User requests Catalog/Index endpoint with pageSize and pageIndex query parameters (defaults: pageSize=10, pageIndex=0)"
+      ],
+      "outcomes": [
+        "Service retrieves total count of all CatalogItems",
+        "Service skips (pageSize \u00d7 pageIndex) items and takes pageSize items from database",
+        "PaginatedItemsViewModel is populated with ActualPage, ItemsPerPage, TotalItems, TotalPages, and Data (item collection)",
+        "View renders pagination controls based on TotalPages and ActualPage"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "Index(int pageSize = 10, int pageIndex = 0) calls service.GetCatalogItemsPaginated(pageSize, pageIndex)",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Services/CatalogService.cs",
+          "observation": "GetCatalogItemsPaginated calculates totalItems, skips and takes based on pageSize/pageIndex, returns PaginatedItemsViewModel with TotalPages = (int)Math.Ceiling(((decimal)count / pageSize))",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/ViewModel/PaginatedItemsViewModel.cs",
+          "observation": "TotalPages computed as (int)Math.Ceiling(((decimal)count / pageSize)) in constructor",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-008",
+      "title": "Picture URI Construction",
+      "description": "Picture URI for a catalog item is dynamically constructed as '/Pics/{itemId}.png' in the ported app. In the legacy app, it uses a route helper to construct an absolute URL via the PicController route.",
+      "category": "business logic",
+      "basis": "explicit",
+      "conditions": [
+        "CatalogItem is retrieved and displayed in a view"
+      ],
+      "outcomes": [
+        "Ported app: PictureUri is set to '/Pics/{item.Id}.png'",
+        "Legacy app: PictureUri is set via Url.RouteUrl(PicController.GetPicRouteName, ...) producing an absolute URL to the PicController.Index route with catalogItemId parameter"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "AddUriPlaceHolder method sets item.PictureUri = $\"/Pics/{item.Id}.png\"",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "AddUriPlaceHolder method sets item.PictureUri = this.Url.RouteUrl(PicController.GetPicRouteName, new { catalogItemId = item.Id }, this.Request.Url.Scheme)",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-009",
+      "title": "Service Implementation Selection (Mock vs Real)",
+      "description": "The application can switch between a real database-backed CatalogService and a mock in-memory CatalogServiceMock based on configuration. The eShopPorted appsettings.json exposes a 'UseMockData' flag; logic for conditional registration is inferred but not fully evidenced.",
+      "category": "configuration",
+      "basis": "inferred",
+      "conditions": [
+        "Application starts",
+        "DI container is configured (Autofac)"
+      ],
+      "outcomes": [
+        "If UseMockData = true, CatalogServiceMock is registered as ICatalogService implementation",
+        "If UseMockData = false, real CatalogService is registered",
+        "All controller dependencies receive the selected implementation"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/appsettings.json",
+          "observation": "Contains \"UseMockData\": \"true\" flag",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Services/CatalogServiceMock.cs",
+          "observation": "Provides hardcoded in-memory implementation of ICatalogService using PreconfiguredData",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Services/CatalogService.cs",
+          "observation": "Real implementation backed by CatalogDBContext",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-010",
+      "title": "Legacy HiLo Sequence-Based ID Generation",
+      "description": "In the legacy application, CatalogItem IDs are generated using a custom HiLo (High-Low) sequence pattern. When creating a new CatalogItem, CatalogItemHiLoGenerator.GetNextSequenceValue is called to fetch the next ID from the 'catalog_hilo' SQL sequence.",
+      "category": "business logic",
+      "basis": "explicit",
+      "conditions": [
+        "CreateCatalogItem is called in legacy CatalogService",
+        "ID has not been manually set"
+      ],
+      "outcomes": [
+        "HiLoGenerator.GetNextSequenceValue executes: 'SELECT NEXT VALUE FOR catalog_hilo;'",
+        "Database SQL sequence returns the next ID",
+        "ID is assigned to the new CatalogItem before insertion",
+        "Item is persisted with the generated ID"
+      ],
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Services/CatalogService.cs",
+          "observation": "CreateCatalogItem calls catalogItem.Id = indexGenerator.GetNextSequenceValue(db)",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+          "observation": "GetNextSequenceValue executes db.Database.SqlQuery<Int64>(\"SELECT NEXT VALUE FOR catalog_hilo;\")",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-011",
+      "title": "Catalog Item CRUD Operations",
+      "description": "The catalog system supports Create, Read, Update, Delete (CRUD) operations on CatalogItem entities. Each operation is exposed through both MVC controller actions and (in legacy) Web API endpoints.",
+      "category": "business logic",
+      "basis": "explicit",
+      "conditions": [
+        "User navigates to or submits catalog forms (Create, Edit, Delete)",
+        "User calls REST API endpoints"
+      ],
+      "outcomes": [
+        "Create: New CatalogItem is instantiated, validated, persisted via service.CreateCatalogItem()",
+        "Read: CatalogItem is retrieved via service.FindCatalogItem(id) or service.GetCatalogItemsPaginated()",
+        "Update: Modified CatalogItem is saved via service.UpdateCatalogItem() with EntityState.Modified",
+        "Delete: CatalogItem is removed via service.RemoveCatalogItem()"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "Index, Details, Create (GET/POST), Edit (GET/POST), Delete (GET/POST), DeleteConfirmed all map to corresponding service methods",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Services/ICatalogService.cs",
+          "observation": "Interface defines FindCatalogItem, GetCatalogItemsPaginated, CreateCatalogItem, UpdateCatalogItem, RemoveCatalogItem",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-012",
+      "title": "Image MIME Type Resolution",
+      "description": "When serving catalog item picture files, the system determines the MIME type based on the file extension (.png, .gif, .jpg, .jpeg, .bmp, .tiff, .wmf, .jp2, .svg). If extension is unrecognized, default 'application/octet-stream' is used.",
+      "category": "business logic",
+      "basis": "explicit",
+      "conditions": [
+        "PicController.Index is called with a catalogItemId",
+        "Item has a PictureFileName with an extension"
+      ],
+      "outcomes": [
+        "File extension is extracted from PictureFileName",
+        "GetImageMimeTypeFromImageFileExtension maps extension to MIME type",
+        "File is read from disk and returned with correct Content-Type header"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/PicController.cs",
+          "observation": "GetImageMimeTypeFromImageFileExtension switches on imageFileExtension to map .png\u2192image/png, .jpg\u2192image/jpeg, etc.; defaults to application/octet-stream",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/PicController.cs",
+          "observation": "Identical MIME type resolution logic in legacy implementation",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-013",
+      "title": "Catalog Brand and Type Reference Data",
+      "description": "The system maintains a fixed set of catalog brands (Azure, .NET, Visual Studio, SQL Server, Other) and catalog types (Mug, T-Shirt, Sheet, USB Memory Stick) as reference data. These are seeded into the database at initialization.",
+      "category": "data",
+      "basis": "explicit",
+      "conditions": [
+        "Database is initialized or migrated"
+      ],
+      "outcomes": [
+        "5 CatalogBrand records are inserted with IDs 1\u20135",
+        "4 CatalogType records are inserted with IDs 1\u20134",
+        "Reference data is available for dropdown/selection in Create/Edit forms"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/Infrastructure/PreconfiguredData.cs",
+          "observation": "GetPreconfiguredCatalogBrands returns 5 hardcoded brands; GetPreconfiguredCatalogTypes returns 4 hardcoded types",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+          "observation": "HasData() seeding in Fluent API applies PreconfiguredData.GetPreconfiguredCatalogBrands()",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/Infrastructure/PreconfiguredData.cs",
+          "observation": "Identical seed data in legacy codebase",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-014",
+      "title": "Anti-Forgery Token Validation on Mutation Endpoints",
+      "description": "All HTTP POST endpoints that mutate state (Create, Edit, DeleteConfirmed) require an anti-forgery token validated by the [ValidateAntiForgeryToken] attribute to prevent CSRF attacks.",
+      "category": "security",
+      "basis": "explicit",
+      "conditions": [
+        "User submits a form via POST to Create, Edit, or DeleteConfirmed endpoint",
+        "Request lacks or has invalid anti-forgery token"
+      ],
+      "outcomes": [
+        "If token is missing or invalid, request is rejected with HTTP 400 Bad Request",
+        "If token is valid, form processing continues"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "[ValidateAntiForgeryToken] decorates Create(POST), Edit(POST), and DeleteConfirmed(POST) methods",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "Same CSRF protection in legacy controller",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "rule_id": "BR-015",
+      "title": "REST API Brand Data Serialization",
+      "description": "Web API endpoints serving brand data serialize CatalogBrand objects using binary serialization (via eShopLegacy.Utilities.Serializing) for file download responses.",
+      "category": "integration",
+      "basis": "explicit",
+      "conditions": [
+        "FilesController.Index or WebApi/FilesController.Get is called"
+      ],
+      "outcomes": [
+        "Service retrieves CatalogBrand list",
+        "Brands are mapped to BrandDTO objects (Id, Brand properties)",
+        "DTOs are serialized to binary stream via Serializing.SerializeBinary()",
+        "Response is returned as a StreamContent with the serialized bytes"
+      ],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/Api/FilesController.cs",
+          "observation": "Index() maps brands to BrandDTO list, calls Serializing().SerializeBinary(brands), returns Ok(data)",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/WebApi/FilesController.cs",
+          "observation": "Get() similarly serializes brands using Serializing.SerializeBinary() and wraps in HttpResponseMessage with StreamContent",
+          "symbol": null
+        }
+      ]
+    }
+  ],
+  "user_journeys": [
+    {
+      "journey_id": "UJ-001",
+      "title": "Browse Catalog with Pagination",
+      "actor": "Customer/End User",
+      "trigger": "User navigates to /Catalog/Index or clicks 'Next'/'Previous' pagination link",
+      "preconditions": [
+        "Application is running and database is initialized with seed data",
+        "User is viewing a web browser"
+      ],
+      "steps": [
+        {
+          "sequence": 1,
+          "actor_action": "User opens /Catalog/Index in browser (or clicks pagination link with pageSize=10, pageIndex=0)",
+          "system_response": "CatalogController.Index(10, 0) is invoked",
+          "evidence": []
+        },
+        {
+          "sequence": 2,
+          "actor_action": "System processes the request",
+          "system_response": "Service.GetCatalogItemsPaginated(10, 0) is called, fetches total item count and first 10 items from database",
+          "evidence": []
+        },
+        {
+          "sequence": 3,
+          "actor_action": "System constructs the response",
+          "system_response": "PaginatedItemsViewModel is populated: ActualPage=0, ItemsPerPage=10, TotalItems=N, TotalPages=ceil(N/10), Data=[items 1-10]",
+          "evidence": []
+        },
+        {
+          "sequence": 4,
+          "actor_action": "System enriches item URIs",
+          "system_response": "For each item, PictureUri is set to /Pics/{item.Id}.png",
+          "evidence": []
+        },
+        {
+          "sequence": 5,
+          "actor_action": "System returns view with pagination controls",
+          "system_response": "View renders CatalogTable partial with 10 items and pagination UI showing Previous (disabled), page info, Next (enabled if more pages)",
+          "evidence": []
+        }
+      ],
+      "alternate_paths": [
+        "If user navigates to /Catalog/Index?pageSize=5&pageIndex=2, the same flow repeats with pageSize=5, pageIndex=2"
+      ],
+      "outcome": "User sees a paginated list of 10 (or custom pageSize) catalog items with clickable pagination controls to browse through pages"
+    },
+    {
+      "journey_id": "UJ-002",
+      "title": "Create New Catalog Item",
+      "actor": "Admin/Catalog Manager",
+      "trigger": "Admin clicks 'Create New' button on /Catalog/Index",
+      "preconditions": [
+        "Admin has access to the application",
+        "Database is initialized with brand and type seed data"
+      ],
+      "steps": [
+        {
+          "sequence": 1,
+          "actor_action": "Admin clicks 'Create New' button",
+          "system_response": "CatalogController.Create() (GET) is invoked, populates ViewBag.CatalogBrandId and ViewBag.CatalogTypeId dropdowns from service.GetCatalogBrands/Types()",
+          "evidence": []
+        },
+        {
+          "sequence": 2,
+          "actor_action": "Browser renders /Catalog/Create form with empty fields and anti-forgery token",
+          "system_response": "User sees form with Name, Description, Brand dropdown, Type dropdown, Price, Picture, Stock, Restock, Max Stock fields",
+          "evidence": []
+        },
+        {
+          "sequence": 3,
+          "actor_action": "Admin fills form: Name='Test Product', Price=19.99, Stock=50, Brand=2 (.NET), Type=2 (T-Shirt), submits POST",
+          "system_response": "CatalogController.Create(CatalogItem model) validates ModelState",
+          "evidence": []
+        },
+        {
+          "sequence": 4,
+          "actor_action": "System validates all fields (Name required, Price format/range, Stock range, etc.)",
+          "system_response": "If any validation fails, form is re-rendered with error messages. If all valid, service.CreateCatalogItem(catalogItem) is called.",
+          "evidence": []
+        },
+        {
+          "sequence": 5,
+          "actor_action": "Service persists new item (legacy: generates ID via HiLo, ported: EF Core auto-identity)",
+          "system_response": "Item inserted into database with generated ID",
+          "evidence": []
+        }
+      ],
+      "alternate_paths": [
+        "If validation fails, form is re-rendered with errors and user must correct and resubmit"
+      ],
+      "outcome": "New catalog item is created and persisted; user is redirected to /Catalog/Index to see the updated list"
+    }
+  ],
+  "unresolved_questions": [],
+  "source_files_read": [
+    "eShopPorted/Controllers/Api/BrandsController.cs",
+    "eShopPorted/Controllers/Api/FilesController.cs",
+    "eShopPorted/Controllers/CatalogController.cs",
+    "eShopPorted/Controllers/PicController.cs",
+    "src/eShopLegacyMVC/Controllers/Api/CatalogController.cs",
+    "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+    "src/eShopLegacyMVC/Controllers/PicController.cs",
+    "src/eShopLegacyMVC/Controllers/WebApi/BrandsController.cs",
+    "src/eShopLegacyMVC/Controllers/WebApi/FilesController.cs",
+    "eShopPorted/Services/CatalogService.cs",
+    "eShopPorted/Services/CatalogServiceMock.cs",
+    "eShopPorted/Services/ICatalogService.cs",
+    "src/eShopLegacyMVC/Services/CatalogService.cs",
+    "src/eShopLegacyMVC/Services/CatalogServiceMock.cs",
+    "src/eShopLegacyMVC/Services/ICatalogService.cs",
+    "eShopPorted/Migrations/CatalogDBContextModelSnapshot.cs",
+    "eShopPorted/Models/CatalogBrand.cs",
+    "eShopPorted/Models/CatalogDBContext.cs",
+    "eShopPorted/Models/CatalogItem.cs",
+    "eShopPorted/Models/CatalogType.cs",
+    "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+    "eShopPorted/Models/Config/CatalogItemConfig.cs",
+    "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+    "eShopPorted/Models/Infrastructure/PreconfiguredData.cs",
+    "eShopPorted/ViewModel/PaginatedItemsViewModel.cs",
+    "src/eShopLegacyMVC/Models/CatalogBrand.cs",
+    "src/eShopLegacyMVC/Models/CatalogDBContext.cs",
+    "src/eShopLegacyMVC/Models/CatalogItem.cs",
+    "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+    "src/eShopLegacyMVC/Models/CatalogType.cs",
+    "src/eShopLegacyMVC/Models/Infrastructure/CatalogDBInitializer.cs",
+    "src/eShopLegacyMVC/Models/Infrastructure/PreconfiguredData.cs",
+    "src/eShopLegacyMVC/ViewModel/PaginatedItemsViewModel.cs",
+    "eShopPorted/Views/Catalog/CatalogTable.cshtml",
+    "eShopPorted/Views/Catalog/Create.cshtml",
+    "eShopPorted/Views/Catalog/Delete.cshtml",
+    "eShopPorted/Views/Catalog/Details.cshtml",
+    "eShopPorted/Views/Catalog/Edit.cshtml",
+    "eShopPorted/Views/Catalog/Index.cshtml",
+    "eShopPorted/Views/Shared/Error.cshtml"
+  ],
+  "confidence": 0.62
+}

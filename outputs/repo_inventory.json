@@ -1,0 +1,442 @@
+{
+  "repository": "../eShopModernizing/eShopLegacyMVCSolution",
+  "total_files": 84,
+  "categories": {
+    "other": [
+      {
+        "path": "eShopLegacy.Utilities/Properties/AssemblyInfo.cs",
+        "extension": ".cs",
+        "size_bytes": 1413
+      },
+      {
+        "path": "eShopLegacy.Utilities/Serializing.cs",
+        "extension": ".cs",
+        "size_bytes": 688
+      },
+      {
+        "path": "eShopPorted/Migrations/20201130044339_Initial.Designer.cs",
+        "extension": ".cs",
+        "size_bytes": 12833
+      },
+      {
+        "path": "eShopPorted/Migrations/20201130044339_Initial.cs",
+        "extension": ".cs",
+        "size_bytes": 6374
+      },
+      {
+        "path": "eShopPorted/Modules/ApplicationModule.cs",
+        "extension": ".cs",
+        "size_bytes": 824
+      },
+      {
+        "path": "eShopPorted/Program.cs",
+        "extension": ".cs",
+        "size_bytes": 417
+      },
+      {
+        "path": "eShopPorted/Startup.cs",
+        "extension": ".cs",
+        "size_bytes": 2303
+      },
+      {
+        "path": "src/eShopLegacyMVC/App_Start/BundleConfig.cs",
+        "extension": ".cs",
+        "size_bytes": 1319
+      },
+      {
+        "path": "src/eShopLegacyMVC/App_Start/FilterConfig.cs",
+        "extension": ".cs",
+        "size_bytes": 269
+      },
+      {
+        "path": "src/eShopLegacyMVC/App_Start/RouteConfig.cs",
+        "extension": ".cs",
+        "size_bytes": 546
+      },
+      {
+        "path": "src/eShopLegacyMVC/App_Start/WebApiConfig.cs",
+        "extension": ".cs",
+        "size_bytes": 466
+      },
+      {
+        "path": "src/eShopLegacyMVC/Global.asax.cs",
+        "extension": ".cs",
+        "size_bytes": 3690
+      },
+      {
+        "path": "src/eShopLegacyMVC/Modules/ApplicationModule.cs",
+        "extension": ".cs",
+        "size_bytes": 1142
+      },
+      {
+        "path": "src/eShopLegacyMVC/Properties/AssemblyInfo.cs",
+        "extension": ".cs",
+        "size_bytes": 1431
+      }
+    ],
+    "project_files": [
+      {
+        "path": "eShopLegacy.Utilities/eShopLegacy.Utilities.csproj",
+        "extension": ".csproj",
+        "size_bytes": 2181
+      },
+      {
+        "path": "eShopLegacyMVC.sln",
+        "extension": ".sln",
+        "size_bytes": 2118
+      },
+      {
+        "path": "eShopPorted/eShopPorted.csproj",
+        "extension": ".csproj",
+        "size_bytes": 1539
+      },
+      {
+        "path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+        "extension": ".csproj",
+        "size_bytes": 31068
+      }
+    ],
+    "controllers": [
+      {
+        "path": "eShopPorted/Controllers/Api/BrandsController.cs",
+        "extension": ".cs",
+        "size_bytes": 900
+      },
+      {
+        "path": "eShopPorted/Controllers/Api/FilesController.cs",
+        "extension": ".cs",
+        "size_bytes": 999
+      },
+      {
+        "path": "eShopPorted/Controllers/CatalogController.cs",
+        "extension": ".cs",
+        "size_bytes": 6221
+      },
+      {
+        "path": "eShopPorted/Controllers/PicController.cs",
+        "extension": ".cs",
+        "size_bytes": 2741
+      },
+      {
+        "path": "src/eShopLegacyMVC/Controllers/Api/CatalogController.cs",
+        "extension": ".cs",
+        "size_bytes": 284
+      },
+      {
+        "path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+        "extension": ".cs",
+        "size_bytes": 6455
+      },
+      {
+        "path": "src/eShopLegacyMVC/Controllers/PicController.cs",
+        "extension": ".cs",
+        "size_bytes": 2711
+      },
+      {
+        "path": "src/eShopLegacyMVC/Controllers/WebApi/BrandsController.cs",
+        "extension": ".cs",
+        "size_bytes": 1477
+      },
+      {
+        "path": "src/eShopLegacyMVC/Controllers/WebApi/FilesController.cs",
+        "extension": ".cs",
+        "size_bytes": 1140
+      }
+    ],
+    "models": [
+      {
+        "path": "eShopPorted/Migrations/CatalogDBContextModelSnapshot.cs",
+        "extension": ".cs",
+        "size_bytes": 12775
+      },
+      {
+        "path": "eShopPorted/Models/CatalogBrand.cs",
+        "extension": ".cs",
+        "size_bytes": 241
+      },
+      {
+        "path": "eShopPorted/Models/CatalogDBContext.cs",
+        "extension": ".cs",
+        "size_bytes": 658
+      },
+      {
+        "path": "eShopPorted/Models/CatalogItem.cs",
+        "extension": ".cs",
+        "size_bytes": 2107
+      },
+      {
+        "path": "eShopPorted/Models/CatalogType.cs",
+        "extension": ".cs",
+        "size_bytes": 153
+      },
+      {
+        "path": "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+        "extension": ".cs",
+        "size_bytes": 740
+      },
+      {
+        "path": "eShopPorted/Models/Config/CatalogItemConfig.cs",
+        "extension": ".cs",
+        "size_bytes": 1140
+      },
+      {
+        "path": "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+        "extension": ".cs",
+        "size_bytes": 878
+      },
+      {
+        "path": "eShopPorted/Models/Infrastructure/PreconfiguredData.cs",
+        "extension": ".cs",
+        "size_bytes": 3797
+      },
+      {
+        "path": "eShopPorted/ViewModel/PaginatedItemsViewModel.cs",
+        "extension": ".cs",
+        "size_bytes": 773
+      },
+      {
+        "path": "src/eShopLegacyMVC/Models/CatalogBrand.cs",
+        "extension": ".cs",
+        "size_bytes": 244
+      },
+      {
+        "path": "src/eShopLegacyMVC/Models/CatalogDBContext.cs",
+        "extension": ".cs",
+        "size_bytes": 2581
+      },
+      {
+        "path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+        "extension": ".cs",
+        "size_bytes": 2110
+      },
+      {
+        "path": "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+        "extension": ".cs",
+        "size_bytes": 996
+      },
+      {
+        "path": "src/eShopLegacyMVC/Models/CatalogType.cs",
+        "extension": ".cs",
+        "size_bytes": 242
+      },
+      {
+        "path": "src/eShopLegacyMVC/Models/Infrastructure/CatalogDBInitializer.cs",
+        "extension": ".cs",
+        "size_bytes": 14527
+      },
+      {
+        "path": "src/eShopLegacyMVC/Models/Infrastructure/PreconfiguredData.cs",
+        "extension": ".cs",
+        "size_bytes": 3800
+      },
+      {
+        "path": "src/eShopLegacyMVC/ViewModel/PaginatedItemsViewModel.cs",
+        "extension": ".cs",
+        "size_bytes": 776
+      }
+    ],
+    "configuration": [
+      {
+        "path": "eShopPorted/Properties/launchSettings.json",
+        "extension": ".json",
+        "size_bytes": 652
+      },
+      {
+        "path": "eShopPorted/Views/Web.config",
+        "extension": ".config",
+        "size_bytes": 1889
+      },
+      {
+        "path": "eShopPorted/app.config",
+        "extension": ".config",
+        "size_bytes": 131
+      },
+      {
+        "path": "eShopPorted/appsettings.Development.json",
+        "extension": ".json",
+        "size_bytes": 137
+      },
+      {
+        "path": "eShopPorted/appsettings.json",
+        "extension": ".json",
+        "size_bytes": 319
+      },
+      {
+        "path": "src/eShopLegacyMVC/ApplicationInsights.config",
+        "extension": ".config",
+        "size_bytes": 8649
+      },
+      {
+        "path": "src/eShopLegacyMVC/Views/Web.config",
+        "extension": ".config",
+        "size_bytes": 1892
+      },
+      {
+        "path": "src/eShopLegacyMVC/Web.Debug.config",
+        "extension": ".config",
+        "size_bytes": 1242
+      },
+      {
+        "path": "src/eShopLegacyMVC/Web.Release.config",
+        "extension": ".config",
+        "size_bytes": 1302
+      },
+      {
+        "path": "src/eShopLegacyMVC/Web.config",
+        "extension": ".config",
+        "size_bytes": 7616
+      },
+      {
+        "path": "src/eShopLegacyMVC/log4Net.xml",
+        "extension": ".xml",
+        "size_bytes": 611
+      },
+      {
+        "path": "src/eShopLegacyMVC/packages.config",
+        "extension": ".config",
+        "size_bytes": 3738
+      }
+    ],
+    "services": [
+      {
+        "path": "eShopPorted/Services/CatalogService.cs",
+        "extension": ".cs",
+        "size_bytes": 2039
+      },
+      {
+        "path": "eShopPorted/Services/CatalogServiceMock.cs",
+        "extension": ".cs",
+        "size_bytes": 2617
+      },
+      {
+        "path": "eShopPorted/Services/ICatalogService.cs",
+        "extension": ".cs",
+        "size_bytes": 626
+      },
+      {
+        "path": "src/eShopLegacyMVC/Services/CatalogService.cs",
+        "extension": ".cs",
+        "size_bytes": 2193
+      },
+      {
+        "path": "src/eShopLegacyMVC/Services/CatalogServiceMock.cs",
+        "extension": ".cs",
+        "size_bytes": 2629
+      },
+      {
+        "path": "src/eShopLegacyMVC/Services/ICatalogService.cs",
+        "extension": ".cs",
+        "size_bytes": 635
+      }
+    ],
+    "views": [
+      {
+        "path": "eShopPorted/Views/Catalog/CatalogTable.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 2801
+      },
+      {
+        "path": "eShopPorted/Views/Catalog/Create.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 5022
+      },
+      {
+        "path": "eShopPorted/Views/Catalog/Delete.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 2636
+      },
+      {
+        "path": "eShopPorted/Views/Catalog/Details.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 2378
+      },
+      {
+        "path": "eShopPorted/Views/Catalog/Edit.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 5775
+      },
+      {
+        "path": "eShopPorted/Views/Catalog/Index.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 1921
+      },
+      {
+        "path": "eShopPorted/Views/Shared/Error.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 264
+      },
+      {
+        "path": "eShopPorted/Views/Shared/_Layout.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 2381
+      },
+      {
+        "path": "eShopPorted/Views/_ViewStart.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 54
+      },
+      {
+        "path": "src/eShopLegacyMVC/Views/Catalog/CatalogTable.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 2804
+      },
+      {
+        "path": "src/eShopLegacyMVC/Views/Catalog/Create.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 4827
+      },
+      {
+        "path": "src/eShopLegacyMVC/Views/Catalog/Delete.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 2639
+      },
+      {
+        "path": "src/eShopLegacyMVC/Views/Catalog/Details.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 2381
+      },
+      {
+        "path": "src/eShopLegacyMVC/Views/Catalog/Edit.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 5576
+      },
+      {
+        "path": "src/eShopLegacyMVC/Views/Catalog/Index.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 1927
+      },
+      {
+        "path": "src/eShopLegacyMVC/Views/Shared/Error.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 264
+      },
+      {
+        "path": "src/eShopLegacyMVC/Views/Shared/_Layout.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 1675
+      },
+      {
+        "path": "src/eShopLegacyMVC/Views/_ViewStart.cshtml",
+        "extension": ".cshtml",
+        "size_bytes": 54
+      }
+    ],
+    "sql": [
+      {
+        "path": "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_brand_hilo.Sequence.sql",
+        "extension": ".sql",
+        "size_bytes": 307
+      },
+      {
+        "path": "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_hilo.Sequence.sql",
+        "extension": ".sql",
+        "size_bytes": 296
+      },
+      {
+        "path": "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_type_hilo.Sequence.sql",
+        "extension": ".sql",
+        "size_bytes": 305
+      }
+    ]
+  }
+}

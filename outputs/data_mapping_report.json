@@ -1,0 +1,593 @@
+{
+  "summary": "The eShopModernizing repository contains a legacy ASP.NET MVC5/WebAPI2 application (src/eShopLegacyMVC) and a ported ASP.NET Core 2.2 application (eShopPorted), both managing a product catalog persisted via Entity Framework. Three primary entities (CatalogItem, CatalogBrand, CatalogType) map directly between the two codebases with identical schemas, though ID generation differs: legacy uses HiLo sequences, ported uses EF Core identity. Both preserve pagination logic, validation constraints (price range 0\u20131,000,000, stock limits 0\u201310,000,000), nullable fields, and foreign key relationships. Key structural differences include EF6/DbModelBuilder (legacy) vs. EF Core/Fluent Config (ported), and raw SQL sequence queries (legacy) vs. native EF Core generated IDs (ported). Seed data is duplicated across CatalogDBInitializer/PreconfiguredData (legacy) and Fluent HasData configurations (ported). No explicit SQL stored procedures, triggers, or views are evidenced; all data access flows through ORM layers.",
+  "entity_mappings": [
+    {
+      "source_entity": "CatalogItem (legacy, EF6)",
+      "target_entity": "CatalogItem (ported, EF Core 2.2)",
+      "mapping_status": "direct",
+      "fields": [
+        {
+          "source_field": "Id",
+          "target_field": "Id",
+          "source_type": "int",
+          "target_type": "int",
+          "transformation": "Direct; legacy uses HiLo-generated IDs via CatalogItemHiLoGenerator.GetNextSequenceValue(), ported uses EF Core auto-generated identity via SqlServer:ValueGenerationStrategy=IdentityColumn",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "Id property has no explicit initialization; populated by CatalogItemHiLoGenerator in service layer before insert",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Id property declared as int without explicit initializer; EF Core auto-generates via HasAnnotation SqlServer:ValueGenerationStrategy.IdentityColumn in migration snapshot",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Migrations/CatalogDBContextModelSnapshot.cs",
+              "observation": "b.Property<int>(\"Id\").ValueGeneratedOnAdd().HasAnnotation(\"SqlServer:ValueGenerationStrategy\", SqlServerValueGenerationStrategy.IdentityColumn)",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "Name",
+          "target_field": "Name",
+          "source_type": "string",
+          "target_type": "string",
+          "transformation": "Direct; Required, MaxLength(50)",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "[Required] [MaxLength(50)] public string Name",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "[Required] [MaxLength(50)] public string Name",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "Description",
+          "target_field": "Description",
+          "source_type": "string|null",
+          "target_type": "string|null",
+          "transformation": "Direct; nullable string",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "public string Description (no [Required])",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "public string Description (nullable)",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "Price",
+          "target_field": "Price",
+          "source_type": "decimal",
+          "target_type": "decimal",
+          "transformation": "Direct; validates RegularExpression(^\\d+(\\.\\d{0,2})*$) and Range(0, 1000000)",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "[RegularExpression(@\"^\\d+(\\.\\d{0,2})*$\", ErrorMessage=\"The field Price must be a positive number with maximum two decimals.\")] [Range(0, 1000000)] public decimal Price",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Identical regex and range validation on Price field",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "PictureFileName",
+          "target_field": "PictureFileName",
+          "source_type": "string",
+          "target_type": "string",
+          "transformation": "Direct; Required, defaults to 'dummy.png' in constructor",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "public const string DefaultPictureName = \"dummy.png\"; constructor sets PictureFileName = DefaultPictureName; [Required]",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Identical DefaultPictureName constant and constructor default assignment",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "PictureUri",
+          "target_field": "PictureUri",
+          "source_type": "string|null",
+          "target_type": "string|null",
+          "transformation": "Ignored in DB; computed in controller via AddUriPlaceHolder() method. Legacy uses Url.RouteUrl() for absolute URL, ported uses simple string interpolation /Pics/{item.Id}.png",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogDBContext.cs",
+              "observation": "builder.Ignore(ci => ci.PictureUri) in ConfigureCatalogItem()",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/Config/CatalogItemConfig.cs",
+              "observation": "builder.Ignore(ci => ci.PictureUri) in Configure() method",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "CatalogTypeId",
+          "target_field": "CatalogTypeId",
+          "source_type": "int",
+          "target_type": "int",
+          "transformation": "Direct FK; references CatalogType.Id",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "public int CatalogTypeId; [Display(Name = \"Type\")]",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Identical CatalogTypeId and Display attribute",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/Config/CatalogItemConfig.cs",
+              "observation": "builder.HasOne(ci => ci.CatalogType).WithMany().HasForeignKey(ci => ci.CatalogTypeId)",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "CatalogType",
+          "target_field": "CatalogType",
+          "source_type": "CatalogType",
+          "target_type": "CatalogType",
+          "transformation": "Direct navigation property",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "[Display(Name = \"Type\")] public CatalogType CatalogType",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Identical CatalogType navigation property",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "CatalogBrandId",
+          "target_field": "CatalogBrandId",
+          "source_type": "int",
+          "target_type": "int",
+          "transformation": "Direct FK; references CatalogBrand.Id",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "public int CatalogBrandId; [Display(Name = \"Brand\")]",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Identical CatalogBrandId and Display attribute",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/Config/CatalogItemConfig.cs",
+              "observation": "builder.HasOne(ci => ci.CatalogBrand).WithMany().HasForeignKey(ci => ci.CatalogBrandId)",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "CatalogBrand",
+          "target_field": "CatalogBrand",
+          "source_type": "CatalogBrand",
+          "target_type": "CatalogBrand",
+          "transformation": "Direct navigation property",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "[Display(Name = \"Brand\")] public CatalogBrand CatalogBrand",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Identical CatalogBrand navigation property",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "AvailableStock",
+          "target_field": "AvailableStock",
+          "source_type": "int",
+          "target_type": "int",
+          "transformation": "Direct; Range(0, 10000000) validates stock quantity",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "[Range(0, 10000000, ErrorMessage = \"The field Stock must be between 0 and 10 million.\")] public int AvailableStock",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Identical Range constraint on AvailableStock",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "RestockThreshold",
+          "target_field": "RestockThreshold",
+          "source_type": "int",
+          "target_type": "int",
+          "transformation": "Direct; Range(0, 10000000) for reorder trigger level",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "[Range(0, 10000000, ErrorMessage = \"The field Restock must be between 0 and 10 million.\")] public int RestockThreshold",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Identical Range constraint on RestockThreshold",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "MaxStockThreshold",
+          "target_field": "MaxStockThreshold",
+          "source_type": "int",
+          "target_type": "int",
+          "transformation": "Direct; Range(0, 10000000) for warehouse capacity",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "[Range(0, 10000000, ErrorMessage = \"The field Max stock must be between 0 and 10 million.\")] public int MaxStockThreshold",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Identical Range constraint on MaxStockThreshold",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "OnReorder",
+          "target_field": "OnReorder",
+          "source_type": "bool",
+          "target_type": "bool",
+          "transformation": "Direct boolean flag; defaults to false",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+              "observation": "public bool OnReorder (no initializer, defaults to false)",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogItem.cs",
+              "observation": "Identical OnReorder property declaration",
+              "symbol": null
+            }
+          ]
+        }
+      ],
+      "constraints": [
+        "Id: Primary key, auto-generated (legacy: HiLo sequence catalog_hilo via CatalogItemHiLoGenerator; ported: EF Core IDENTITY)",
+        "Name: NOT NULL, max 50 chars",
+        "Description: nullable string",
+        "Price: NOT NULL, decimal(18,2), regex pattern ^\\d+(\\.\\d{0,2})*$, range [0, 1000000]",
+        "CatalogTypeId: NOT NULL, FK\u2192CatalogType.Id",
+        "CatalogBrandId: NOT NULL, FK\u2192CatalogBrand.Id",
+        "AvailableStock: int, range [0, 10000000]",
+        "RestockThreshold: int, range [0, 10000000]",
+        "MaxStockThreshold: int, range [0, 10000000]",
+        "OnReorder: bool, default false"
+      ],
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogDBContext.cs",
+          "observation": "ConfigureCatalogItem uses DbModelBuilder fluent API; builder.HasRequired<CatalogBrand>().WithMany().HasForeignKey() and builder.HasRequired<CatalogType>().WithMany().HasForeignKey() define FK constraints",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Models/Config/CatalogItemConfig.cs",
+          "observation": "IEntityTypeConfiguration<CatalogItem>.Configure() defines table name 'Catalog', key, property constraints (IsRequired, MaxLength, Ignore(PictureUri)), and HasOne/WithMany/HasForeignKey relationships",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+          "observation": "Multiple [Range] and [RegularExpression] data annotation attributes enforce validation rules",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "source_entity": "CatalogBrand (legacy, EF6)",
+      "target_entity": "CatalogBrand (ported, EF Core 2.2)",
+      "mapping_status": "direct",
+      "fields": [
+        {
+          "source_field": "Id",
+          "target_field": "Id",
+          "source_type": "int",
+          "target_type": "int",
+          "transformation": "Direct; legacy uses HiLo sequence catalog_brand_hilo, ported uses EF Core auto-identity",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogBrand.cs",
+              "observation": "Id property with no initializer; populated via HiLo generator in CatalogDBInitializer.AddCatalogBrands()",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogBrand.cs",
+              "observation": "Id property; EF Core auto-generates via migration snapshot IDENTITY configuration",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "Brand",
+          "target_field": "Brand",
+          "source_type": "string",
+          "target_type": "string",
+          "transformation": "Direct; Required, MaxLength(100)",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogBrand.cs",
+              "observation": "public string Brand (property only, no explicit attributes in entity but constrained in DbContext)",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogBrand.cs",
+              "observation": "public string Brand with implicit required/length constraints applied in CatalogBrandConfig",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+              "observation": "builder.Property(cb => cb.Brand).IsRequired().HasMaxLength(100)",
+              "symbol": null
+            }
+          ]
+        }
+      ],
+      "constraints": [
+        "Id: Primary key, auto-generated (legacy: HiLo catalog_brand_hilo; ported: EF Core IDENTITY)",
+        "Brand: NOT NULL, max 100 chars"
+      ],
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_brand_hilo.Sequence.sql",
+          "observation": "CREATE SEQUENCE [dbo].[catalog_brand_hilo] AS [bigint] START WITH 1 INCREMENT BY 10",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+          "observation": "HasData() seeding with predefined brands: Azure, .NET, Visual Studio, SQL Server, Other",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "source_entity": "CatalogType (legacy, EF6)",
+      "target_entity": "CatalogType (ported, EF Core 2.2)",
+      "mapping_status": "direct",
+      "fields": [
+        {
+          "source_field": "Id",
+          "target_field": "Id",
+          "source_type": "int",
+          "target_type": "int",
+          "transformation": "Direct; legacy uses HiLo sequence catalog_type_hilo, ported uses EF Core auto-identity",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogType.cs",
+              "observation": "Id property with no initializer; HiLo-generated in CatalogDBInitializer.AddCatalogTypes()",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogType.cs",
+              "observation": "Id property; EF Core auto-generates via IDENTITY",
+              "symbol": null
+            }
+          ]
+        },
+        {
+          "source_field": "Type",
+          "target_field": "Type",
+          "source_type": "string",
+          "target_type": "string",
+          "transformation": "Direct; Required, MaxLength(100)",
+          "nullable_change": null,
+          "evidence": [
+            {
+              "source_path": "src/eShopLegacyMVC/Models/CatalogType.cs",
+              "observation": "public string Type (property only)",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/CatalogType.cs",
+              "observation": "public string Type",
+              "symbol": null
+            },
+            {
+              "source_path": "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+              "observation": "builder.Property(cb => cb.Type).IsRequired().HasMaxLength(100)",
+              "symbol": null
+            }
+          ]
+        }
+      ],
+      "constraints": [
+        "Id: Primary key, auto-generated (legacy: HiLo catalog_type_hilo; ported: EF Core IDENTITY)",
+        "Type: NOT NULL, max 100 chars"
+      ],
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_type_hilo.Sequence.sql",
+          "observation": "CREATE SEQUENCE [dbo].[catalog_type_hilo] AS [bigint] START WITH 1 INCREMENT BY 10",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+          "observation": "HasData() seeding with 4 types: Mug, T-Shirt, Sheet, USB Memory Stick",
+          "symbol": null
+        }
+      ]
+    }
+  ],
+  "sql_conversions": [
+    {
+      "conversion_id": "SQL-001",
+      "title": "Migrate Legacy HiLo ID Generation to EF Core IDENTITY",
+      "description": "Legacy application uses custom HiLo (High-Low) sequences for CatalogItem, CatalogBrand, and CatalogType ID generation via raw SQL queries (SELECT NEXT VALUE FOR catalog_hilo). EF Core 2.2 uses IDENTITY columns. This conversion removes the HiLo pattern and relies on EF Core's native identity generation.",
+      "proposed_sql": "-- No user-facing SQL required; EF Core Migrations handle IDENTITY column creation.\n-- However, if migrating existing data, verify existing IDs do not conflict with IDENTITY seed:\nDBCC CHECKIDENT ('Catalog', RESEED, 12);\nDBCC CHECKIDENT ('CatalogBrand', RESEED, 5);\nDBCC CHECKIDENT ('CatalogType', RESEED, 4);",
+      "validation_sql": "-- Verify IDENTITY columns are configured and auto-increment\nSELECT COLUMNPROPERTY(OBJECT_ID('Catalog'), 'Id', 'IsIdentity') AS IsIdentity_Catalog,\n       IDENT_CURRENT('Catalog') AS CurrentSeed_Catalog,\n       COLUMNPROPERTY(OBJECT_ID('CatalogBrand'), 'Id', 'IsIdentity') AS IsIdentity_Brand,\n       IDENT_CURRENT('CatalogBrand') AS CurrentSeed_Brand,\n       COLUMNPROPERTY(OBJECT_ID('CatalogType'), 'Id', 'IsIdentity') AS IsIdentity_Type,\n       IDENT_CURRENT('CatalogType') AS CurrentSeed_Type;",
+      "rollback_sql": "-- Restore HiLo sequences if reverting to legacy app:\nDROP SEQUENCE IF EXISTS [dbo].[catalog_hilo];\nDROP SEQUENCE IF EXISTS [dbo].[catalog_brand_hilo];\nDROP SEQUENCE IF EXISTS [dbo].[catalog_type_hilo];\nCREATE SEQUENCE [dbo].[catalog_hilo] AS [bigint] START WITH 1 INCREMENT BY 10;\nCREATE SEQUENCE [dbo].[catalog_brand_hilo] AS [bigint] START WITH 1 INCREMENT BY 10;\nCREATE SEQUENCE [dbo].[catalog_type_hilo] AS [bigint] START WITH 1 INCREMENT BY 10;",
+      "execution_order": 1,
+      "manual_review_required": true,
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+          "observation": "GetNextSequenceValue() executes db.Database.SqlQuery<Int64>(\"SELECT NEXT VALUE FOR catalog_hilo;\") and manages HiLo state (sequenceId, remainningLoIds)",
+          "symbol": "CatalogItemHiLoGenerator.GetNextSequenceValue"
+        },
+        {
+          "source_path": "eShopPorted/Migrations/CatalogDBContextModelSnapshot.cs",
+          "observation": "b.Property<int>(\"Id\").ValueGeneratedOnAdd().HasAnnotation(\"SqlServer:ValueGenerationStrategy\", SqlServerValueGenerationStrategy.IdentityColumn) indicates IDENTITY generation in ported app",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "conversion_id": "SQL-002",
+      "title": "Seed Reference Data (Brands and Types) via EF Core HasData",
+      "description": "Legacy application seeds CatalogBrand and CatalogType via CatalogDBInitializer.Seed() which either loads from CSV files (if UseCustomizationData=true) or calls PreconfiguredData.GetPreconfiguredCatalogBrands/Types(). Ported app uses EF Core Fluent API HasData() in entity configurations. This conversion consolidates seeding into Fluent configuration and removes the need for imperative initializers.",
+      "proposed_sql": "-- No direct SQL; EF Core Migrations generate INSERT statements from HasData() configuration.\n-- Equivalent INSERT statements (generated by EF Core migration):\nINSERT INTO [CatalogBrand] ([Id], [Brand]) VALUES (1, N'Azure'), (2, N'.NET'), (3, N'Visual Studio'), (4, N'SQL Server'), (5, N'Other');\nINSERT INTO [CatalogType] ([Id], [Type]) VALUES (1, N'Mug'), (2, N'T-Shirt'), (3, N'Sheet'), (4, N'USB Memory Stick');",
+      "validation_sql": "SELECT COUNT(*) AS BrandCount FROM CatalogBrand;\nSELECT COUNT(*) AS TypeCount FROM CatalogType;\nSELECT * FROM CatalogBrand ORDER BY Id;\nSELECT * FROM CatalogType ORDER BY Id;",
+      "rollback_sql": "DELETE FROM CatalogBrand WHERE Id IN (1, 2, 3, 4, 5);\nDELETE FROM CatalogType WHERE Id IN (1, 2, 3, 4);",
+      "execution_order": 2,
+      "manual_review_required": false,
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+          "observation": "builder.HasData(PreconfiguredData.GetPreconfiguredCatalogBrands()) applies HasData() seeding using PreconfiguredData static method",
+          "symbol": "CatalogBrandConfig.Configure"
+        },
+        {
+          "source_path": "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+          "observation": "builder.HasData(...) inline HasData() call with hardcoded CatalogType instances (Mug, T-Shirt, Sheet, USB Memory Stick)",
+          "symbol": "CatalogTypeConfig.Configure"
+        }
+      ]
+    },
+    {
+      "conversion_id": "SQL-003",
+      "title": "Seed CatalogItems via EF Core HasData with Updated ForeignKey References",
+      "description": "Legacy application seeds CatalogItem instances in CatalogDBInitializer.AddCatalogItems(), assigning IDs via HiLo generator and linking to CatalogBrand/CatalogType via FK. Ported app uses CatalogItemConfig.HasData(PreconfiguredData.GetPreconfiguredCatalogItems()) with pre-assigned integer IDs (1\u201312) and matching FK references. This conversion ensures seeded items reference correct brand/type IDs and use IDENTITY for ID generation.",
+      "proposed_sql": "-- EF Core Migration generates INSERT statements for 12 CatalogItems; example for first few:\nINSERT INTO [Catalog] ([Id], [AvailableStock], [CatalogBrandId], [CatalogTypeId], [Description], [MaxStockThreshold], [Name], [OnReorder], [PictureFileName], [Price], [RestockThreshold])\nVALUES (1, 100, 2, 2, N'.NET Bot Black Hoodie', 0, N'.NET Bot Black Hoodie', 0, N'1.png', 19.5, 0),\n       (2, 100, 2, 1, N'.NET Black & White Mug', 0, N'.NET Black & White Mug', 0, N'2.png', 8.50, 0),\n       -- ... 10 more rows (IDs 3\u201312)\n       (12, 100, 5, 2, N'Prism White TShirt', 0, N'Prism White TShirt', 0, N'12.png', 12, 0);",
+      "validation_sql": "SELECT COUNT(*) AS ItemCount FROM Catalog;\nSELECT Id, Name, CatalogBrandId, CatalogTypeId, Price FROM Catalog ORDER BY Id;\n-- Verify FK references are valid:\nSELECT c.Id, c.Name, cb.Brand, ct.Type FROM Catalog c\nJOIN CatalogBrand cb ON c.CatalogBrandId = cb.Id\nJOIN CatalogType ct ON c.CatalogTypeId = ct.Id\nORDER BY c.Id;",
+      "rollback_sql": "DELETE FROM Catalog WHERE Id BETWEEN 1 AND 12;",
+      "execution_order": 3,
+      "manual_review_required": false,
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/Infrastructure/PreconfiguredData.cs",
+          "observation": "GetPreconfiguredCatalogItems() returns List<CatalogItem> with 12 hardcoded items, each with explicit Id (1\u201312), CatalogTypeId, CatalogBrandId, Price, Name, Description, PictureFileName, AvailableStock=100, RestockThreshold=0, MaxStockThreshold=0, OnReorder=false",
+          "symbol": "PreconfiguredData.GetPreconfiguredCatalogItems"
+        },
+        {
+          "source_path": "eShopPorted/Models/Config/CatalogItemConfig.cs",
+          "observation": "builder.HasData(PreconfiguredData.GetPreconfiguredCatalogItems()) applies HasData() seeding with PreconfiguredData items",
+          "symbol": "CatalogItemConfig.Configure"
+        }
+      ]
+    }
+  ],
+  "migration_order": [
+    "CatalogBrand (reference entity, FK target; seed first)",
+    "CatalogType (reference entity, FK target; seed second)",
+    "CatalogItem (dependent entity; seed third after FKs are populated)"
+  ],
+  "data_quality_risks": [
+    "Hardcoded seed data in both legacy (PreconfiguredData) and ported (PreconfiguredData) codebases is duplicated and manually synchronized; any change to reference data must be updated in both locations, risking divergence during migration window",
+    "Legacy CatalogDBInitializer supports CSV-based customization (UseCustomizationData flag) but ported app does not; if custom data was loaded from CSV in legacy, it will revert to hardcoded defaults in ported app unless CSV loading is re-implemented",
+    "HiLo ID generation in legacy app uses raw SQL (SELECT NEXT VALUE FOR catalog_hilo) with custom in-memory sequencing logic; migrating to EF Core IDENTITY may cause ID conflicts if existing legacy data is not properly seeded in IDENTITY RESEED",
+    "Price field stores decimal(18,2) with regex validation (^\\d+(\\.\\d{0,2})*$); conversion must ensure all existing prices conform to this pattern, otherwise validation will fail during update operations",
+    "FK references (CatalogBrandId, CatalogTypeId) assume referential integrity; if legacy database has orphaned items or missing brand/type records, ported app will fail during migration or constraint checking"
+  ],
+  "unresolved_questions": [],
+  "source_files_read": [
+    "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_brand_hilo.Sequence.sql",
+    "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_hilo.Sequence.sql",
+    "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_type_hilo.Sequence.sql",
+    "eShopPorted/Migrations/CatalogDBContextModelSnapshot.cs",
+    "eShopPorted/Models/CatalogBrand.cs",
+    "eShopPorted/Models/CatalogDBContext.cs",
+    "eShopPorted/Models/CatalogItem.cs",
+    "eShopPorted/Models/CatalogType.cs",
+    "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+    "eShopPorted/Models/Config/CatalogItemConfig.cs",
+    "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+    "eShopPorted/Models/Infrastructure/PreconfiguredData.cs",
+    "eShopPorted/ViewModel/PaginatedItemsViewModel.cs",
+    "src/eShopLegacyMVC/Models/CatalogBrand.cs",
+    "src/eShopLegacyMVC/Models/CatalogDBContext.cs",
+    "src/eShopLegacyMVC/Models/CatalogItem.cs",
+    "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+    "src/eShopLegacyMVC/Models/CatalogType.cs",
+    "src/eShopLegacyMVC/Models/Infrastructure/CatalogDBInitializer.cs",
+    "src/eShopLegacyMVC/Models/Infrastructure/PreconfiguredData.cs",
+    "src/eShopLegacyMVC/ViewModel/PaginatedItemsViewModel.cs",
+    "eShopPorted/Properties/launchSettings.json",
+    "eShopPorted/Views/Web.config",
+    "eShopPorted/app.config",
+    "eShopPorted/appsettings.Development.json",
+    "eShopPorted/appsettings.json",
+    "src/eShopLegacyMVC/ApplicationInsights.config",
+    "src/eShopLegacyMVC/Views/Web.config",
+    "src/eShopLegacyMVC/Web.Debug.config",
+    "src/eShopLegacyMVC/Web.Release.config",
+    "src/eShopLegacyMVC/Web.config",
+    "src/eShopLegacyMVC/log4Net.xml",
+    "src/eShopLegacyMVC/packages.config",
+    "eShopLegacy.Utilities/eShopLegacy.Utilities.csproj",
+    "eShopLegacyMVC.sln",
+    "eShopPorted/eShopPorted.csproj",
+    "src/eShopLegacyMVC/eShopLegacyMVC.csproj"
+  ],
+  "confidence": 0.72
+}

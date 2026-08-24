@@ -1,0 +1,601 @@
+{
+  "summary": "The repository contains two parallel implementations of an eShop Catalog web application: a legacy ASP.NET MVC5/WebAPI2 application on .NET Framework (src/eShopLegacyMVC) and a partially ported ASP.NET Core 2.2 application targeting net461 (eShopPorted). The legacy app exposes multiple HTTP API endpoints for catalog management (Brands, Files, Catalog items) via Web API 2, while the ported app provides equivalent routes via ASP.NET Core MVC/API controllers. Both share identical domain models (CatalogItem, CatalogBrand, CatalogType) and services (ICatalogService interface with real and mock implementations), but diverge in data access layers (EF6 vs EF Core 2.2). No asynchronous event contracts (pub/sub, messaging) are detected in the codebase; the application is synchronous request-response only.",
+  "api_contracts": [
+    {
+      "contract_id": "API-001",
+      "application": "eShopLegacyMVC",
+      "method": "GET",
+      "route": "api/brands",
+      "handler": "src/eShopLegacyMVC/Controllers/WebApi/BrandsController.cs::BrandsController.Get()",
+      "request_contract": "query parameters: none",
+      "response_contract": "IEnumerable<CatalogBrand> (JSON)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [],
+      "counterpart_contract_id": "API-002",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/WebApi/BrandsController.cs",
+          "observation": "Get() returns IEnumerable<Models.CatalogBrand> from _service.GetCatalogBrands()",
+          "symbol": "BrandsController.Get()"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-002",
+      "application": "eShopPorted",
+      "method": "GET",
+      "route": "api/brands",
+      "handler": "eShopPorted/Controllers/Api/BrandsController.cs::BrandsController.Index()",
+      "request_contract": "query parameters: none",
+      "response_contract": "IActionResult (IEnumerable<CatalogBrand> JSON)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [],
+      "counterpart_contract_id": "API-001",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/Api/BrandsController.cs",
+          "observation": "Index() returns Ok(brands) where brands=_service.GetCatalogBrands()",
+          "symbol": "BrandsController.Index()"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-003",
+      "application": "eShopLegacyMVC",
+      "method": "DELETE",
+      "route": "api/brands/{id}",
+      "handler": "src/eShopLegacyMVC/Controllers/WebApi/BrandsController.cs::BrandsController.Delete(int id)",
+      "request_contract": "URL parameter: id (int)",
+      "response_contract": "IHttpActionResult (OK or NotFound)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "NotFound (404) when brand id not found"
+      ],
+      "counterpart_contract_id": "API-004",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/WebApi/BrandsController.cs",
+          "observation": "Delete(id) filters brands by id, returns ResponseMessage(HttpStatusCode.NotFound) if not found, else OK",
+          "symbol": "BrandsController.Delete(int)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-004",
+      "application": "eShopPorted",
+      "method": "DELETE",
+      "route": "api/brands/{id}",
+      "handler": "eShopPorted/Controllers/Api/BrandsController.cs::BrandsController.Delete(int id)",
+      "request_contract": "URL parameter: id (int)",
+      "response_contract": "IActionResult (OK or NotFound)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "NotFound when brand id not found"
+      ],
+      "counterpart_contract_id": "API-003",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/Api/BrandsController.cs",
+          "observation": "Delete(id) filters brands by id, returns NotFound() if not found, else Ok()",
+          "symbol": "BrandsController.Delete(int)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-005",
+      "application": "eShopLegacyMVC",
+      "method": "GET",
+      "route": "api/files",
+      "handler": "src/eShopLegacyMVC/Controllers/WebApi/FilesController.cs::FilesController.Get()",
+      "request_contract": "query parameters: none",
+      "response_contract": "HttpResponseMessage with binary-serialized CatalogBrand DTOs",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [],
+      "counterpart_contract_id": "API-006",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/WebApi/FilesController.cs",
+          "observation": "Get() returns HttpResponseMessage with StreamContent from Serializing.SerializeBinary(brands) where brands are mapped to BrandDTO",
+          "symbol": "FilesController.Get()"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-006",
+      "application": "eShopPorted",
+      "method": "GET",
+      "route": "api/files",
+      "handler": "eShopPorted/Controllers/Api/FilesController.cs::FilesController.Index()",
+      "request_contract": "query parameters: none",
+      "response_contract": "IActionResult (raw bytes from binary-serialized CatalogBrand DTOs)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [],
+      "counterpart_contract_id": "API-005",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/Api/FilesController.cs",
+          "observation": "Index() returns Ok(data) where data=Serializing.SerializeBinary(brands) mapped to BrandDTO",
+          "symbol": "FilesController.Index()"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-007",
+      "application": "eShopLegacyMVC",
+      "method": "GET",
+      "route": "Catalog",
+      "handler": "src/eShopLegacyMVC/Controllers/CatalogController.cs::CatalogController.Index(int pageSize, int pageIndex)",
+      "request_contract": "Query parameters: pageSize (default 10), pageIndex (default 0)",
+      "response_contract": "View(PaginatedItemsViewModel<CatalogItem>)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [],
+      "counterpart_contract_id": "API-008",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "Index(pageSize, pageIndex) calls service.GetCatalogItemsPaginated() and returns View with PaginatedItemsViewModel",
+          "symbol": "CatalogController.Index(int, int)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-008",
+      "application": "eShopPorted",
+      "method": "GET",
+      "route": "Catalog",
+      "handler": "eShopPorted/Controllers/CatalogController.cs::CatalogController.Index(int pageSize, int pageIndex)",
+      "request_contract": "Query parameters: pageSize (default 10), pageIndex (default 0)",
+      "response_contract": "View(PaginatedItemsViewModel<CatalogItem>)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [],
+      "counterpart_contract_id": "API-007",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "Index(pageSize, pageIndex) calls service.GetCatalogItemsPaginated() and returns View with PaginatedItemsViewModel",
+          "symbol": "CatalogController.Index(int, int)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-009",
+      "application": "eShopLegacyMVC",
+      "method": "GET",
+      "route": "Catalog/Details/{id}",
+      "handler": "src/eShopLegacyMVC/Controllers/CatalogController.cs::CatalogController.Details(int? id)",
+      "request_contract": "URL parameter: id (nullable int)",
+      "response_contract": "View(CatalogItem) or error (BadRequest/NotFound)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "BadRequest (400) if id is null",
+        "NotFound (404) if item not found"
+      ],
+      "counterpart_contract_id": "API-010",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "Details(id?) returns BadRequest if id==null, NotFound if item not found, else View(catalogItem)",
+          "symbol": "CatalogController.Details(int?)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-010",
+      "application": "eShopPorted",
+      "method": "GET",
+      "route": "Catalog/Details/{id}",
+      "handler": "eShopPorted/Controllers/CatalogController.cs::CatalogController.Details(int? id)",
+      "request_contract": "URL parameter: id (nullable int)",
+      "response_contract": "View(CatalogItem) or error (BadRequest/NotFound)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "BadRequest (400) if id is null",
+        "NotFound (404) if item not found"
+      ],
+      "counterpart_contract_id": "API-009",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "Details(id?) returns BadRequest if id==null, NotFound if item not found, else View(catalogItem)",
+          "symbol": "CatalogController.Details(int?)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-011",
+      "application": "eShopLegacyMVC",
+      "method": "GET",
+      "route": "Catalog/Create",
+      "handler": "src/eShopLegacyMVC/Controllers/CatalogController.cs::CatalogController.Create()",
+      "request_contract": "none",
+      "response_contract": "View(CatalogItem) with populated CatalogBrandId and CatalogTypeId SelectLists",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [],
+      "counterpart_contract_id": "API-012",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "Create() populates ViewBag.CatalogBrandId and ViewBag.CatalogTypeId SelectLists, returns View(new CatalogItem())",
+          "symbol": "CatalogController.Create()"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-012",
+      "application": "eShopPorted",
+      "method": "GET",
+      "route": "Catalog/Create",
+      "handler": "eShopPorted/Controllers/CatalogController.cs::CatalogController.Create()",
+      "request_contract": "none",
+      "response_contract": "View(CatalogItem) with populated CatalogBrandId and CatalogTypeId SelectLists",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [],
+      "counterpart_contract_id": "API-011",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "Create() populates ViewBag.CatalogBrandId and ViewBag.CatalogTypeId SelectLists, returns View(new CatalogItem())",
+          "symbol": "CatalogController.Create()"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-013",
+      "application": "eShopLegacyMVC",
+      "method": "POST",
+      "route": "Catalog/Create",
+      "handler": "src/eShopLegacyMVC/Controllers/CatalogController.cs::CatalogController.Create(CatalogItem catalogItem)",
+      "request_contract": "Form-bound CatalogItem (Name, Description, Price, PictureFileName, CatalogTypeId, CatalogBrandId, AvailableStock, RestockThreshold, MaxStockThreshold, OnReorder)",
+      "response_contract": "Redirect to Index on success, View(catalogItem) + SelectLists on validation failure",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "ModelState validation errors returned in View"
+      ],
+      "counterpart_contract_id": "API-014",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "[HttpPost] Create(catalogItem) validates ModelState, calls service.CreateCatalogItem(), redirects to Index on success",
+          "symbol": "CatalogController.Create(CatalogItem)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-014",
+      "application": "eShopPorted",
+      "method": "POST",
+      "route": "Catalog/Create",
+      "handler": "eShopPorted/Controllers/CatalogController.cs::CatalogController.Create(CatalogItem catalogItem)",
+      "request_contract": "Form-bound CatalogItem (Name, Description, Price, PictureFileName, CatalogTypeId, CatalogBrandId, AvailableStock, RestockThreshold, MaxStockThreshold, OnReorder)",
+      "response_contract": "Redirect to Index on success, View(catalogItem) + SelectLists on validation failure",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "ModelState validation errors returned in View"
+      ],
+      "counterpart_contract_id": "API-013",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "[HttpPost] Create(catalogItem) validates ModelState, calls service.CreateCatalogItem(), redirects to Index on success",
+          "symbol": "CatalogController.Create(CatalogItem)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-015",
+      "application": "eShopLegacyMVC",
+      "method": "GET",
+      "route": "Catalog/Edit/{id}",
+      "handler": "src/eShopLegacyMVC/Controllers/CatalogController.cs::CatalogController.Edit(int? id)",
+      "request_contract": "URL parameter: id (nullable int)",
+      "response_contract": "View(CatalogItem) with SelectLists or error (BadRequest/NotFound)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "BadRequest (400) if id is null",
+        "NotFound (404) if item not found"
+      ],
+      "counterpart_contract_id": "API-016",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "Edit(id?) returns BadRequest if id==null, NotFound if item not found, else View(catalogItem) with SelectLists",
+          "symbol": "CatalogController.Edit(int?)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-016",
+      "application": "eShopPorted",
+      "method": "GET",
+      "route": "Catalog/Edit/{id}",
+      "handler": "eShopPorted/Controllers/CatalogController.cs::CatalogController.Edit(int? id)",
+      "request_contract": "URL parameter: id (nullable int)",
+      "response_contract": "View(CatalogItem) with SelectLists or error (BadRequest/NotFound)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "BadRequest (400) if id is null",
+        "NotFound (404) if item not found"
+      ],
+      "counterpart_contract_id": "API-015",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "Edit(id?) returns BadRequest if id==null, NotFound if item not found, else View(catalogItem) with SelectLists",
+          "symbol": "CatalogController.Edit(int?)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-017",
+      "application": "eShopLegacyMVC",
+      "method": "POST",
+      "route": "Catalog/Edit/{id}",
+      "handler": "src/eShopLegacyMVC/Controllers/CatalogController.cs::CatalogController.Edit(CatalogItem catalogItem)",
+      "request_contract": "Form-bound CatalogItem with updated properties",
+      "response_contract": "Redirect to Index on success, View(catalogItem) + SelectLists on validation failure",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "ModelState validation errors returned in View"
+      ],
+      "counterpart_contract_id": "API-018",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "[HttpPost] Edit(catalogItem) validates ModelState, calls service.UpdateCatalogItem(), redirects to Index on success",
+          "symbol": "CatalogController.Edit(CatalogItem)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-018",
+      "application": "eShopPorted",
+      "method": "POST",
+      "route": "Catalog/Edit/{id}",
+      "handler": "eShopPorted/Controllers/CatalogController.cs::CatalogController.Edit(CatalogItem catalogItem)",
+      "request_contract": "Form-bound CatalogItem with updated properties",
+      "response_contract": "Redirect to Index on success, View(catalogItem) + SelectLists on validation failure",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "ModelState validation errors returned in View"
+      ],
+      "counterpart_contract_id": "API-017",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "[HttpPost] Edit(catalogItem) validates ModelState, calls service.UpdateCatalogItem(), redirects to Index on success",
+          "symbol": "CatalogController.Edit(CatalogItem)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-019",
+      "application": "eShopLegacyMVC",
+      "method": "GET",
+      "route": "Catalog/Delete/{id}",
+      "handler": "src/eShopLegacyMVC/Controllers/CatalogController.cs::CatalogController.Delete(int? id)",
+      "request_contract": "URL parameter: id (nullable int)",
+      "response_contract": "View(CatalogItem) or error (BadRequest/NotFound)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "BadRequest (400) if id is null",
+        "NotFound (404) if item not found"
+      ],
+      "counterpart_contract_id": "API-020",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "Delete(id?) returns BadRequest if id==null, NotFound if item not found, else View(catalogItem)",
+          "symbol": "CatalogController.Delete(int?)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-020",
+      "application": "eShopPorted",
+      "method": "GET",
+      "route": "Catalog/Delete/{id}",
+      "handler": "eShopPorted/Controllers/CatalogController.cs::CatalogController.Delete(int? id)",
+      "request_contract": "URL parameter: id (nullable int)",
+      "response_contract": "View(CatalogItem) or error (BadRequest/NotFound)",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "BadRequest (400) if id is null",
+        "NotFound (404) if item not found"
+      ],
+      "counterpart_contract_id": "API-019",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "Delete(id?) returns BadRequest if id==null, NotFound if item not found, else View(catalogItem)",
+          "symbol": "CatalogController.Delete(int?)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-021",
+      "application": "eShopLegacyMVC",
+      "method": "POST",
+      "route": "Catalog/Delete/{id}",
+      "handler": "src/eShopLegacyMVC/Controllers/CatalogController.cs::CatalogController.DeleteConfirmed(int id)",
+      "request_contract": "Form data (id via action binding)",
+      "response_contract": "Redirect to Index",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [],
+      "counterpart_contract_id": "API-022",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "[HttpPost, ActionName(\"Delete\")] DeleteConfirmed(id) calls service.RemoveCatalogItem(), redirects to Index",
+          "symbol": "CatalogController.DeleteConfirmed(int)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-022",
+      "application": "eShopPorted",
+      "method": "POST",
+      "route": "Catalog/Delete/{id}",
+      "handler": "eShopPorted/Controllers/CatalogController.cs::CatalogController.DeleteConfirmed(int id)",
+      "request_contract": "Form data (id via action binding)",
+      "response_contract": "Redirect to Index",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [],
+      "counterpart_contract_id": "API-021",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "[HttpPost, ActionName(\"Delete\")] DeleteConfirmed(id) calls service.RemoveCatalogItem(), redirects to Index",
+          "symbol": "CatalogController.DeleteConfirmed(int)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-023",
+      "application": "eShopLegacyMVC",
+      "method": "GET",
+      "route": "items/{catalogItemId}/pic",
+      "handler": "src/eShopLegacyMVC/Controllers/PicController.cs::PicController.Index(int catalogItemId)",
+      "request_contract": "Route parameter: catalogItemId (int)",
+      "response_contract": "File (binary image bytes) with MIME type based on PictureFileName extension, or BadRequest/NotFound",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "BadRequest (400) if catalogItemId <= 0",
+        "NotFound (404) if item not found"
+      ],
+      "counterpart_contract_id": "API-024",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/PicController.cs",
+          "observation": "Index(catalogItemId) validates id > 0, calls service.FindCatalogItem(), returns File(buffer, mimetype) or HttpNotFound()",
+          "symbol": "PicController.Index(int)"
+        }
+      ]
+    },
+    {
+      "contract_id": "API-024",
+      "application": "eShopPorted",
+      "method": "GET",
+      "route": "items/{catalogItemId}/pic",
+      "handler": "eShopPorted/Controllers/PicController.cs::PicController.Index(int catalogItemId)",
+      "request_contract": "Route parameter: catalogItemId (int)",
+      "response_contract": "File (binary image bytes) with MIME type based on PictureFileName extension, or BadRequest/NotFound",
+      "authentication": null,
+      "authorization": null,
+      "error_behaviors": [
+        "BadRequest (400) if catalogItemId <= 0",
+        "NotFound (404) if item not found"
+      ],
+      "counterpart_contract_id": "API-023",
+      "compatibility": "equivalent",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/PicController.cs",
+          "observation": "Index(catalogItemId) validates id > 0, calls service.FindCatalogItem(), returns File(buffer, mimetype) or HttpNotFound()",
+          "symbol": "PicController.Index(int)"
+        }
+      ]
+    }
+  ],
+  "events": [],
+  "no_events_found": true,
+  "compatibility_gaps": [
+    "API-005 and API-006 use binary serialization (BinaryFormatter) via eShopLegacy.Utilities.Serializing which is deprecated and insecure in modern .NET; legacy and ported apps should migrate to JSON or other safe serialization",
+    "API-001/API-002 (Brands GET) return identical CatalogBrand collections but legacy uses Web API 2 IEnumerable while ported uses ASP.NET Core Ok(); no functional incompatibility but serialization libraries (Newtonsoft.Json 12.0.1 vs 13.0.2) differ",
+    "eShopLegacyMVC uses EF6 (manual HiLo ID generation via raw SQL) while eShopPorted uses EF Core 2.2 (identity columns); ID generation strategies diverge, complicating cross-application data synchronization"
+  ],
+  "unresolved_questions": [
+    "Exact UseMockData and UseCustomizationData configuration logic in eShopPorted/appsettings.json is not wired; unclear which ICatalogService implementation (real vs mock) is registered at runtime",
+    "eShopPorted still targets net461 despite ASP.NET Core 2.2 packages; unclear if this is intentional or incomplete migration; runtime compatibility not verified",
+    "No authentication or authorization decorators ([Authorize], [AllowAnonymous]) visible on any API contracts; security posture unclear",
+    "PictureFileName mapping and physical file path resolution differ: legacy uses Server.MapPath(\"~/Pics\"), ported uses empty string; file serving behavior may diverge"
+  ],
+  "source_files_read": [
+    "eShopPorted/Controllers/Api/BrandsController.cs",
+    "eShopPorted/Controllers/Api/FilesController.cs",
+    "eShopPorted/Controllers/CatalogController.cs",
+    "eShopPorted/Controllers/PicController.cs",
+    "src/eShopLegacyMVC/Controllers/Api/CatalogController.cs",
+    "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+    "src/eShopLegacyMVC/Controllers/PicController.cs",
+    "src/eShopLegacyMVC/Controllers/WebApi/BrandsController.cs",
+    "src/eShopLegacyMVC/Controllers/WebApi/FilesController.cs",
+    "eShopPorted/Services/CatalogService.cs",
+    "eShopPorted/Services/CatalogServiceMock.cs",
+    "eShopPorted/Services/ICatalogService.cs",
+    "src/eShopLegacyMVC/Services/CatalogService.cs",
+    "src/eShopLegacyMVC/Services/CatalogServiceMock.cs",
+    "src/eShopLegacyMVC/Services/ICatalogService.cs",
+    "eShopPorted/Migrations/CatalogDBContextModelSnapshot.cs",
+    "eShopPorted/Models/CatalogBrand.cs",
+    "eShopPorted/Models/CatalogDBContext.cs",
+    "eShopPorted/Models/CatalogItem.cs",
+    "eShopPorted/Models/CatalogType.cs",
+    "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+    "eShopPorted/Models/Config/CatalogItemConfig.cs",
+    "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+    "eShopPorted/Models/Infrastructure/PreconfiguredData.cs",
+    "eShopPorted/ViewModel/PaginatedItemsViewModel.cs",
+    "src/eShopLegacyMVC/Models/CatalogBrand.cs",
+    "src/eShopLegacyMVC/Models/CatalogDBContext.cs",
+    "src/eShopLegacyMVC/Models/CatalogItem.cs",
+    "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+    "src/eShopLegacyMVC/Models/CatalogType.cs",
+    "src/eShopLegacyMVC/Models/Infrastructure/CatalogDBInitializer.cs",
+    "src/eShopLegacyMVC/Models/Infrastructure/PreconfiguredData.cs",
+    "src/eShopLegacyMVC/ViewModel/PaginatedItemsViewModel.cs",
+    "eShopPorted/Properties/launchSettings.json",
+    "eShopPorted/Views/Web.config",
+    "eShopPorted/app.config",
+    "eShopPorted/appsettings.Development.json",
+    "eShopPorted/appsettings.json",
+    "src/eShopLegacyMVC/ApplicationInsights.config",
+    "src/eShopLegacyMVC/Views/Web.config"
+  ],
+  "confidence": 0.72
+}

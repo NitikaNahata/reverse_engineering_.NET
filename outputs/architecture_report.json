@@ -1,0 +1,593 @@
+{
+  "summary": "The repository contains two parallel implementations of an 'eShop' Catalog web application: a legacy ASP.NET MVC 5 / Web API 2 application (src/eShopLegacyMVC) targeting classic .NET Framework, and a strangler-fig / ported ASP.NET Core 2.2 application (eShopPorted) targeting net461 via Microsoft.NET.Sdk.Web. Both share a nearly identical layered design: MVC controllers, Web API controllers, an ICatalogService abstraction with a real EF-backed CatalogService and a CatalogServiceMock, and Catalog domain models (CatalogItem, CatalogBrand, CatalogType) persisted through a CatalogDBContext (EF6 in the legacy app, EF Core 2.2.6 in the ported app). A shared eShopLegacy.Utilities library provides binary serialization used by both apps' Files/Brands API controllers. Autofac provides dependency injection in both versions via near-duplicate ApplicationModule classes, and log4net provides logging. The legacy app additionally wires Application Insights telemetry, bundling/optimization, and classic Global.asax/App_Start startup, while the ported app uses Startup.cs/Program.cs (Kestrel/IWebHostBuilder) and EF Core Migrations with a code-first model snapshot. A PowerShell script (Convert-ToPackageReference.ps1) suggests active migration tooling from packages.config to PackageReference format, reinforcing that this is a migration-in-progress repository rather than a single coherent architecture.",
+  "architectural_styles": [
+    "Layered monolithic web application (Controller-Service-DataAccess)",
+    "Strangler-fig / parallel migration pattern (legacy ASP.NET MVC & WebAPI alongside ported ASP.NET Core equivalent)",
+    "Repository/Service abstraction via ICatalogService with interchangeable real and mock implementations",
+    "Dependency Injection via Autofac modules",
+    "Code-first ORM data access (Entity Framework 6 / EF Core)"
+  ],
+  "components": [
+    {
+      "name": "eShopLegacyMVC Web Application",
+      "kind": "ASP.NET MVC5/WebAPI2 application",
+      "responsibility": "Legacy web front-end and REST API surface for catalog browsing/management, hosted under classic .NET Framework via Global.asax and App_Start configuration.",
+      "source_paths": [
+        "src/eShopLegacyMVC/Global.asax.cs",
+        "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+        "src/eShopLegacyMVC/Web.config"
+      ],
+      "dependencies": [
+        "Catalog Service Layer (legacy)",
+        "eShopLegacy.Utilities",
+        "Autofac DI Module (legacy)"
+      ]
+    },
+    {
+      "name": "eShopPorted Web Application",
+      "kind": "ASP.NET Core 2.2 application",
+      "responsibility": "Ported/modernized web front-end and REST API surface for catalog browsing/management, hosted via Kestrel/IWebHostBuilder with Startup.cs configuration.",
+      "source_paths": [
+        "eShopPorted/Startup.cs",
+        "eShopPorted/Program.cs",
+        "eShopPorted/eShopPorted.csproj"
+      ],
+      "dependencies": [
+        "Catalog Service Layer (ported)",
+        "eShopLegacy.Utilities",
+        "Autofac DI Module (ported)"
+      ]
+    },
+    {
+      "name": "eShopLegacy.Utilities",
+      "kind": "shared class library",
+      "responsibility": "Provides cross-cutting binary serialization/deserialization helpers reused by both the legacy and ported Web API file/brand endpoints.",
+      "source_paths": [
+        "eShopLegacy.Utilities/Serializing.cs",
+        "eShopLegacy.Utilities/eShopLegacy.Utilities.csproj"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "Catalog MVC Controllers",
+      "kind": "presentation/controller component",
+      "responsibility": "Handles browser-facing CRUD requests (Index/Create/Edit/Delete/Details) for catalog items, present in duplicate legacy and ported forms.",
+      "source_paths": [
+        "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+        "eShopPorted/Controllers/CatalogController.cs"
+      ],
+      "dependencies": [
+        "Catalog Service Layer (legacy)",
+        "Catalog Service Layer (ported)"
+      ]
+    },
+    {
+      "name": "Catalog Web API Controllers",
+      "kind": "REST API controller component",
+      "responsibility": "Exposes brand, file, and catalog data over HTTP APIs (WebApi/BrandsController, WebApi/FilesController, Api/CatalogController, PicController) in both legacy WebAPI2 and ported ASP.NET Core Mvc styles.",
+      "source_paths": [
+        "src/eShopLegacyMVC/Controllers/WebApi/BrandsController.cs",
+        "src/eShopLegacyMVC/Controllers/WebApi/FilesController.cs",
+        "eShopPorted/Controllers/Api/BrandsController.cs",
+        "eShopPorted/Controllers/Api/FilesController.cs",
+        "src/eShopLegacyMVC/Controllers/PicController.cs",
+        "eShopPorted/Controllers/PicController.cs"
+      ],
+      "dependencies": [
+        "Catalog Service Layer (legacy)",
+        "Catalog Service Layer (ported)",
+        "eShopLegacy.Utilities"
+      ]
+    },
+    {
+      "name": "Catalog Service Layer (legacy)",
+      "kind": "service/business-logic component",
+      "responsibility": "Implements ICatalogService for the legacy app, with a real EF6-backed CatalogService and an in-memory CatalogServiceMock alternative selected presumably by configuration.",
+      "source_paths": [
+        "src/eShopLegacyMVC/Services/ICatalogService.cs",
+        "src/eShopLegacyMVC/Services/CatalogService.cs",
+        "src/eShopLegacyMVC/Services/CatalogServiceMock.cs"
+      ],
+      "dependencies": [
+        "CatalogDBContext (legacy/EF6)",
+        "Catalog Domain Models (legacy)"
+      ]
+    },
+    {
+      "name": "Catalog Service Layer (ported)",
+      "kind": "service/business-logic component",
+      "responsibility": "Implements ICatalogService for the ported app, with a real EF Core-backed CatalogService and an in-memory CatalogServiceMock; appsettings.json exposes a UseMockData flag suggesting runtime toggling.",
+      "source_paths": [
+        "eShopPorted/Services/ICatalogService.cs",
+        "eShopPorted/Services/CatalogService.cs",
+        "eShopPorted/Services/CatalogServiceMock.cs"
+      ],
+      "dependencies": [
+        "CatalogDBContext (ported/EF Core)",
+        "Catalog Domain Models (ported)"
+      ]
+    },
+    {
+      "name": "Catalog Domain Models (legacy)",
+      "kind": "domain model / entity component",
+      "responsibility": "Defines CatalogItem, CatalogBrand, CatalogType entities and the PaginatedItemsViewModel used across legacy controllers, services, and views.",
+      "source_paths": [
+        "src/eShopLegacyMVC/Models/CatalogItem.cs",
+        "src/eShopLegacyMVC/Models/CatalogBrand.cs",
+        "src/eShopLegacyMVC/Models/CatalogType.cs"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "Catalog Domain Models (ported)",
+      "kind": "domain model / entity component",
+      "responsibility": "Defines CatalogItem, CatalogBrand, CatalogType entities and Fluent API configuration classes (CatalogBrandConfig/CatalogTypeConfig/CatalogItemConfig) for the ported EF Core context.",
+      "source_paths": [
+        "eShopPorted/Models/CatalogItem.cs",
+        "eShopPorted/Models/CatalogBrand.cs",
+        "eShopPorted/Models/CatalogType.cs",
+        "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+        "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+        "eShopPorted/Models/Config/CatalogItemConfig.cs"
+      ],
+      "dependencies": [
+        "PreconfiguredData (ported)"
+      ]
+    },
+    {
+      "name": "CatalogDBContext (legacy/EF6)",
+      "kind": "data access component",
+      "responsibility": "Entity Framework 6 DbContext configuring catalog entities via DbModelBuilder, seeded via CatalogDBInitializer, and relying on a custom HiLo ID generator with raw SQL sequence queries.",
+      "source_paths": [
+        "src/eShopLegacyMVC/Models/CatalogDBContext.cs",
+        "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+        "src/eShopLegacyMVC/Models/Infrastructure/CatalogDBInitializer.cs"
+      ],
+      "dependencies": [
+        "Catalog Domain Models (legacy)"
+      ]
+    },
+    {
+      "name": "CatalogDBContext (ported/EF Core)",
+      "kind": "data access component",
+      "responsibility": "EF Core 2.2 DbContext applying IEntityTypeConfiguration classes from the assembly and seeding via HasData/PreconfiguredData; supports EF Core Migrations.",
+      "source_paths": [
+        "eShopPorted/Models/CatalogDBContext.cs",
+        "eShopPorted/Migrations/20201130044339_Initial.cs",
+        "eShopPorted/Migrations/CatalogDBContextModelSnapshot.cs"
+      ],
+      "dependencies": [
+        "Catalog Domain Models (ported)"
+      ]
+    },
+    {
+      "name": "Autofac DI Modules",
+      "kind": "dependency injection configuration component",
+      "responsibility": "Registers services (ICatalogService implementations) and controllers with Autofac's ContainerBuilder in both legacy (Global.asax RegisterContainer) and ported (Startup.ConfigureServices) hosting models.",
+      "source_paths": [
+        "src/eShopLegacyMVC/Modules/ApplicationModule.cs",
+        "eShopPorted/Modules/ApplicationModule.cs",
+        "src/eShopLegacyMVC/Global.asax.cs",
+        "eShopPorted/Startup.cs"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "Preconfigured/Seed Data",
+      "kind": "seed data component",
+      "responsibility": "Supplies hardcoded catalog brand/type/item seed data used by both DB initializers/migrations to populate a fresh database.",
+      "source_paths": [
+        "src/eShopLegacyMVC/Models/Infrastructure/PreconfiguredData.cs",
+        "eShopPorted/Models/Infrastructure/PreconfiguredData.cs"
+      ],
+      "dependencies": [
+        "Catalog Domain Models (legacy)",
+        "Catalog Domain Models (ported)"
+      ]
+    },
+    {
+      "name": "Migration Tooling Script",
+      "kind": "build/migration automation script",
+      "responsibility": "PowerShell script (Convert-ToPackageReference.ps1) that converts legacy packages.config-based NuGet references to PackageReference format, indicating in-progress project modernization tooling.",
+      "source_paths": [
+        "Convert-ToPackageReference.ps1"
+      ],
+      "dependencies": []
+    }
+  ],
+  "entry_points": [
+    {
+      "source_path": "src/eShopLegacyMVC/Global.asax.cs",
+      "observation": "MvcApplication.Application_Start bootstraps routing, filters, bundles, DI container and DB configuration for the legacy ASP.NET MVC application.",
+      "symbol": "MvcApplication.Application_Start"
+    },
+    {
+      "source_path": "eShopPorted/Program.cs",
+      "observation": "Program.Main/CreateWebHostBuilder is the process entry point for the ported ASP.NET Core Kestrel-hosted application.",
+      "symbol": "Program.Main"
+    },
+    {
+      "source_path": "eShopPorted/Startup.cs",
+      "observation": "Startup.ConfigureServices/Configure wires middleware pipeline and DI container (Autofac) for the ported app.",
+      "symbol": "Startup.Configure"
+    },
+    {
+      "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+      "observation": "MVC controller exposing Index/Create/Edit/Delete/Details HTTP actions for catalog browsing in the legacy app.",
+      "symbol": null
+    },
+    {
+      "source_path": "eShopPorted/Controllers/Api/BrandsController.cs",
+      "observation": "REST API controller exposing catalog brand data ([Route(\"api/[controller]\")]) in the ported application.",
+      "symbol": null
+    }
+  ],
+  "data_stores": [
+    {
+      "name": "Catalog SQL Database (legacy, EF6)",
+      "kind": "relational database (SQL Server via Entity Framework 6)",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogDBContext.cs",
+          "observation": "DbContext with DbSet-like configuration for CatalogItem/CatalogBrand/CatalogType, configured via CreateDatabaseIfNotExists initializer.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_hilo.Sequence.sql",
+          "observation": "Raw SQL sequence object used for HiLo primary key generation, indicating direct DB objects outside EF migrations.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+          "observation": "Executes 'SELECT NEXT VALUE FOR catalog_hilo' raw SQL query against the DbContext.Database to generate IDs.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Catalog SQL Database (ported, EF Core)",
+      "kind": "relational database (SQL Server via Entity Framework Core 2.2.6)",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogDBContext.cs",
+          "observation": "EF Core DbContext with DbSet<CatalogItem/Brand/Type> and ApplyConfigurationsFromAssembly for entity configuration.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Migrations/20201130044339_Initial.cs",
+          "observation": "EF Core code-first migration defining the initial schema for the ported catalog database.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/appsettings.json",
+          "observation": "ConnectionStrings:DefaultConnection points to a LocalDB SQL Server instance named eShopPorted.",
+          "symbol": null
+        }
+      ]
+    }
+  ],
+  "external_dependencies": [
+    {
+      "name": "Autofac / Autofac.Mvc5 / Autofac.Extensions.DependencyInjection",
+      "kind": "dependency injection framework",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Modules/ApplicationModule.cs",
+          "observation": "ContainerBuilder-based module registering services for the legacy app.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Modules/ApplicationModule.cs",
+          "observation": "Equivalent Autofac ContainerBuilder module for the ported app.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Entity Framework (legacy) / Entity Framework Core (ported)",
+      "kind": "ORM data access framework",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogDBContext.cs",
+          "observation": "Legacy DbContext using classic EF6 DbModelBuilder pattern.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Models/CatalogDBContext.cs",
+          "observation": "Ported DbContext using EF Core 2.2 ModelBuilder pattern with IEntityTypeConfiguration.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "log4net",
+      "kind": "logging framework",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/log4Net.xml",
+          "observation": "RollingFileAppender configuration for application logging.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "Controller references ILog for logging calls.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Microsoft Application Insights",
+      "kind": "telemetry/monitoring SDK",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/ApplicationInsights.config",
+          "observation": "Application Insights configuration present only in the legacy project, absent from the ported app.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "eShopLegacy.Utilities (BinaryFormatter Serialization)",
+      "kind": "internal shared library using System.Runtime.Serialization.Formatters.Binary",
+      "evidence": [
+        {
+          "source_path": "eShopLegacy.Utilities/Serializing.cs",
+          "observation": "SerializeBinary/DeserializeBinary methods used by both apps' Files controllers to serialize DTOs to a Stream.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Controllers/Api/FilesController.cs",
+          "observation": "FilesController.Index calls Serializing.SerializeBinary on brand DTOs before returning them over HTTP.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Newtonsoft.Json / Web API formatters",
+      "kind": "serialization library",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "Newtonsoft.Json package referenced for the legacy Web API stack.",
+          "symbol": null
+        }
+      ]
+    }
+  ],
+  "cross_cutting_concerns": [
+    "Dependency Injection (Autofac) configured redundantly in two separate hosting models",
+    "Logging via log4net across both legacy and ported controllers/services",
+    "Configuration management split between Web.config/App.config (legacy) and appsettings.json (ported), indicating incomplete configuration migration",
+    "Binary serialization shared via eShopLegacy.Utilities, used for API payloads in both codebases",
+    "Database seeding/preconfigured reference data duplicated between legacy CatalogDBInitializer and ported EF Core HasData",
+    "Telemetry/monitoring only present in the legacy app (Application Insights), not yet ported"
+  ],
+  "risks": [
+    {
+      "title": "Duplicate parallel codebases increase maintenance and divergence risk",
+      "description": "The repository contains two nearly complete, independently evolving implementations of the same Catalog application (src/eShopLegacyMVC and eShopPorted) with duplicated controllers, services, models, and DI modules. Any bug fix or feature must be manually ported to both, and it's unclear which is authoritative, increasing risk of behavioral drift during the migration window.",
+      "severity": "high",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "Nearly identical controller logic exists in eShopPorted/Controllers/CatalogController.cs",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Services/CatalogService.cs",
+          "observation": "Duplicated service layer structurally mirrors src/eShopLegacyMVC/Services/CatalogService.cs",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Use of BinaryFormatter-based serialization is insecure and deprecated",
+      "description": "The shared eShopLegacy.Utilities.Serializing class uses binary serialization (implied by SerializeBinary/DeserializeBinary over Stream) to transmit DTOs via Web API endpoints in both apps. BinaryFormatter-style serialization is known to be vulnerable to deserialization attacks and is deprecated/removed in modern .NET, posing both a security and forward-compatibility risk during modernization.",
+      "severity": "high",
+      "evidence": [
+        {
+          "source_path": "eShopLegacy.Utilities/Serializing.cs",
+          "observation": "Serializing.SerializeBinary/DeserializeBinary operate on System.IO.Stream, consistent with BinaryFormatter usage patterns.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Controllers/Api/FilesController.cs",
+          "observation": "FilesController.Index serializes brand DTOs via Serializing.SerializeBinary and returns raw bytes over HTTP.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Raw SQL sequence queries bypass ORM abstraction for ID generation",
+      "description": "CatalogItemHiLoGenerator executes a raw 'SELECT NEXT VALUE FOR catalog_hilo' SQL query directly against the DbContext.Database in the legacy app, coupling business logic tightly to specific SQL Server sequence objects and bypassing EF's abstraction layer, which complicates database portability and safe migration to EF Core.",
+      "severity": "medium",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+          "observation": "Uses db.Database.SqlQuery<Int64>(\"SELECT NEXT VALUE FOR catalog_hilo;\") for custom HiLo ID generation.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/Infrastructure/dbo.catalog_hilo.Sequence.sql",
+          "observation": "Raw SQL script defines the catalog_hilo sequence object outside of EF Code First migrations.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Legacy .NET Framework dependency and outdated NuGet packages",
+      "description": "The legacy project targets classic ASP.NET MVC5/WebAPI2 on .NET Framework with EntityFramework, Microsoft.AspNet.WebApi, and other framework-era packages that are out of long-term support, indicating this component needs a full framework upgrade path beyond the partial porting already attempted.",
+      "severity": "medium",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "References legacy packages such as Microsoft.AspNet.Mvc, Microsoft.AspNet.WebApi, EntityFramework, and Microsoft.AspNet.Razor.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/packages.config",
+          "observation": "Presence of packages.config indicates legacy NuGet package management style predating PackageReference.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Ported project still targets net461 despite using ASP.NET Core SDK",
+      "description": "eShopPorted.csproj uses Microsoft.NET.Sdk.Web but targets framework net461 rather than a modern .NET (Core/5+) TFM, meaning the 'ported' application has not fully left the .NET Framework runtime, undermining the goal of true modernization.",
+      "severity": "medium",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "Graph metadata shows framework_net461 associated with eShopPorted.csproj alongside sdk_microsoft_net_sdk_web.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Mock vs real service selection logic is implicit and undocumented",
+      "description": "Both codebases implement CatalogServiceMock alongside the real CatalogService, and eShopPorted/appsettings.json exposes a 'UseMockData' flag, but the wiring/branching logic that decides which implementation is registered is not evident from the DI modules alone, risking inconsistent behavior between environments if misconfigured.",
+      "severity": "low",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/appsettings.json",
+          "observation": "Contains \"UseMockData\": \"true\" and \"UseCustomizationData\": \"true\" flags controlling seed/mock behavior.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Modules/ApplicationModule.cs",
+          "observation": "Autofac module presumably registers either CatalogService or CatalogServiceMock, but the conditional logic is not directly visible in supplied evidence.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Duplicated seed/preconfigured data increases risk of data drift between environments",
+      "description": "Both the legacy CatalogDBInitializer/PreconfiguredData and the ported EF Core PreconfiguredData/Config classes hardcode the same catalog seed data independently, so any change to reference data must be manually synchronized across two codebases and seeding mechanisms (custom initializer vs EF Core HasData/migrations).",
+      "severity": "low",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/Models/Infrastructure/PreconfiguredData.cs",
+          "observation": "Legacy static seed data provider used by CatalogDBInitializer.Seed().",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Models/Infrastructure/PreconfiguredData.cs",
+          "observation": "Ported static seed data provider used by CatalogBrandConfig/CatalogTypeConfig/CatalogItemConfig via HasData().",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Telemetry and monitoring not yet ported",
+      "description": "Application Insights configuration and dependency collection exist only in the legacy project (ApplicationInsights.config, multiple Microsoft.ApplicationInsights.* NuGet packages) with no equivalent observability stack evidenced in the ported ASP.NET Core project, creating an observability gap post-migration.",
+      "severity": "medium",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/ApplicationInsights.config",
+          "observation": "Dedicated Application Insights configuration file present only under src/eShopLegacyMVC.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "References numerous Microsoft.ApplicationInsights.* packages not present in eShopPorted.csproj dependency list.",
+          "symbol": null
+        }
+      ]
+    }
+  ],
+  "source_files_read": [
+    "eShopPorted/app.config",
+    "eShopPorted/appsettings.Development.json",
+    "eShopPorted/Models/CatalogType.cs",
+    "eShopPorted/Models/CatalogBrand.cs",
+    "src/eShopLegacyMVC/Models/CatalogType.cs",
+    "src/eShopLegacyMVC/Models/CatalogBrand.cs",
+    "src/eShopLegacyMVC/Controllers/Api/CatalogController.cs",
+    "eShopPorted/appsettings.json",
+    "src/eShopLegacyMVC/log4Net.xml",
+    "eShopPorted/Services/ICatalogService.cs",
+    "src/eShopLegacyMVC/Services/ICatalogService.cs",
+    "eShopPorted/Properties/launchSettings.json",
+    "eShopPorted/Models/CatalogDBContext.cs",
+    "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+    "eShopPorted/ViewModel/PaginatedItemsViewModel.cs",
+    "src/eShopLegacyMVC/ViewModel/PaginatedItemsViewModel.cs",
+    "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+    "eShopPorted/Controllers/Api/BrandsController.cs",
+    "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+    "eShopPorted/Controllers/Api/FilesController.cs"
+  ],
+  "graph_files_observed": [
+    "Convert-ToPackageReference.ps1",
+    "eShopLegacy.Utilities/Properties/AssemblyInfo.cs",
+    "eShopLegacy.Utilities/Serializing.cs",
+    "eShopLegacy.Utilities/eShopLegacy.Utilities.csproj",
+    "eShopLegacyMVC.sln",
+    "eShopPorted/Controllers/Api/BrandsController.cs",
+    "eShopPorted/Controllers/Api/FilesController.cs",
+    "eShopPorted/Controllers/CatalogController.cs",
+    "eShopPorted/Controllers/PicController.cs",
+    "eShopPorted/Migrations/20201130044339_Initial.Designer.cs",
+    "eShopPorted/Migrations/20201130044339_Initial.cs",
+    "eShopPorted/Migrations/CatalogDBContextModelSnapshot.cs",
+    "eShopPorted/Models/CatalogBrand.cs",
+    "eShopPorted/Models/CatalogDBContext.cs",
+    "eShopPorted/Models/CatalogItem.cs",
+    "eShopPorted/Models/CatalogType.cs",
+    "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+    "eShopPorted/Models/Config/CatalogItemConfig.cs",
+    "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+    "eShopPorted/Models/Infrastructure/PreconfiguredData.cs",
+    "eShopPorted/Modules/ApplicationModule.cs",
+    "eShopPorted/Program.cs",
+    "eShopPorted/Services/CatalogService.cs",
+    "eShopPorted/Services/CatalogServiceMock.cs",
+    "eShopPorted/Services/ICatalogService.cs",
+    "eShopPorted/Startup.cs",
+    "eShopPorted/ViewModel/PaginatedItemsViewModel.cs",
+    "eShopPorted/Views/Catalog/CatalogTable.cshtml",
+    "eShopPorted/Views/Catalog/Create.cshtml",
+    "eShopPorted/Views/Catalog/Delete.cshtml",
+    "eShopPorted/Views/Catalog/Details.cshtml",
+    "eShopPorted/Views/Catalog/Edit.cshtml",
+    "eShopPorted/Views/Catalog/Index.cshtml",
+    "eShopPorted/Views/Shared/Error.cshtml",
+    "eShopPorted/Views/Shared/_Layout.cshtml",
+    "eShopPorted/Views/_ViewStart.cshtml",
+    "eShopPorted/eShopPorted.csproj",
+    "src/eShopLegacyMVC/App_Start/BundleConfig.cs",
+    "src/eShopLegacyMVC/App_Start/FilterConfig.cs",
+    "src/eShopLegacyMVC/App_Start/RouteConfig.cs",
+    "src/eShopLegacyMVC/App_Start/WebApiConfig.cs",
+    "src/eShopLegacyMVC/Controllers/Api/CatalogController.cs",
+    "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+    "src/eShopLegacyMVC/Controllers/PicController.cs",
+    "src/eShopLegacyMVC/Controllers/WebApi/BrandsController.cs",
+    "src/eShopLegacyMVC/Controllers/WebApi/FilesController.cs",
+    "src/eShopLegacyMVC/Global.asax.cs",
+    "src/eShopLegacyMVC/Models/CatalogBrand.cs",
+    "src/eShopLegacyMVC/Models/CatalogDBContext.cs",
+    "src/eShopLegacyMVC/Models/CatalogItem.cs",
+    "src/eShopLegacyMVC/Models/CatalogItemHiLoGenerator.cs",
+    "src/eShopLegacyMVC/Models/CatalogType.cs",
+    "src/eShopLegacyMVC/Models/Infrastructure/CatalogDBInitializer.cs",
+    "src/eShopLegacyMVC/Models/Infrastructure/PreconfiguredData.cs",
+    "src/eShopLegacyMVC/Modules/ApplicationModule.cs",
+    "src/eShopLegacyMVC/Properties/AssemblyInfo.cs",
+    "src/eShopLegacyMVC/Services/CatalogService.cs",
+    "src/eShopLegacyMVC/Services/CatalogServiceMock.cs",
+    "src/eShopLegacyMVC/Services/ICatalogService.cs",
+    "src/eShopLegacyMVC/ViewModel/PaginatedItemsViewModel.cs",
+    "src/eShopLegacyMVC/Views/Catalog/CatalogTable.cshtml",
+    "src/eShopLegacyMVC/Views/Catalog/Create.cshtml",
+    "src/eShopLegacyMVC/Views/Catalog/Delete.cshtml",
+    "src/eShopLegacyMVC/Views/Catalog/Details.cshtml",
+    "src/eShopLegacyMVC/Views/Catalog/Edit.cshtml",
+    "src/eShopLegacyMVC/Views/Catalog/Index.cshtml",
+    "src/eShopLegacyMVC/Views/Shared/Error.cshtml",
+    "src/eShopLegacyMVC/Views/Shared/_Layout.cshtml",
+    "src/eShopLegacyMVC/Views/_ViewStart.cshtml",
+    "src/eShopLegacyMVC/eShopLegacyMVC.csproj"
+  ],
+  "confidence": 0.68
+}

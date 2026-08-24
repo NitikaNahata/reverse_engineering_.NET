@@ -1,0 +1,546 @@
+{
+  "summary": "This eShop Modernizing repository demonstrates a strangler-fig migration from legacy ASP.NET MVC5/WebAPI2 (.NET Framework 4.7.2) to ASP.NET Core 2.2 (targeting net461). Both implementations provide identical catalog CRUD functionality with models, services, controllers, and data access layers. Extracted acceptance criteria cover primary journeys (catalog browsing with pagination, item CRUD), validation constraints (price range 0\u20131,000,000, stock limits 0\u201310,000,000), pagination logic, anti-forgery protection, MIME type resolution, and reference data seeding. The extraction is constrained by incomplete evidence on conditional service selection (UseMockData flag wiring) and some validation error handling flows. All criteria are grounded in repository evidence; inferences are minimal and recorded as unresolved questions.",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "title": "Catalog Item Pagination with Default Page Size",
+      "given": "A user opens the catalog index page without specifying page parameters",
+      "when": "CatalogController.Index() is invoked with default query parameters (pageSize=10, pageIndex=0)",
+      "then": "The service retrieves total item count, skips 0 items, takes 10 items from database, calculates TotalPages = ceil(count/10), populates PaginatedItemsViewModel with ActualPage=0, ItemsPerPage=10, Data containing first 10 items, and renders View with pagination controls showing Next enabled if TotalPages > 1",
+      "priority": "high",
+      "verification_method": "Integration test: navigate to /Catalog/Index, verify HTTP 200 response, assert ViewModel.ActualPage == 0, ViewModel.ItemsPerPage == 10, ViewModel.Data.Count <= 10, pagination UI rendered correctly",
+      "related_rule_ids": [
+        "BR-007"
+      ],
+      "related_journey_ids": [
+        "UJ-001"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "Index(int pageSize = 10, int pageIndex = 0) calls service.GetCatalogItemsPaginated(pageSize, pageIndex)",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Services/CatalogService.cs",
+          "observation": "GetCatalogItemsPaginated calculates totalItems = _context.CatalogItems.Count(), creates ViewModel with TotalPages = (int)Math.Ceiling(((decimal)count / pageSize)), skips and takes results",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-002",
+      "title": "Catalog Item Pagination with Custom Page Size",
+      "given": "A user requests a catalog page with custom pageSize and pageIndex parameters",
+      "when": "CatalogController.Index(pageSize=5, pageIndex=2) is invoked",
+      "then": "Service calculates skip = 5 * 2 = 10, takes 5 items starting at offset 10, TotalPages = ceil(count/5), ViewModel.ActualPage = 2, ViewModel.ItemsPerPage = 5, View renders page 2 with 5 items and pagination controls showing Previous and Next as appropriate",
+      "priority": "high",
+      "verification_method": "Integration test: navigate to /Catalog/Index?pageSize=5&pageIndex=2, assert ViewModel.ActualPage == 2, ViewModel.ItemsPerPage == 5, ViewModel.Data.Count <= 5, verify second page items differ from first page",
+      "related_rule_ids": [
+        "BR-007"
+      ],
+      "related_journey_ids": [
+        "UJ-001"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Services/CatalogService.cs",
+          "observation": "GetCatalogItemsPaginated applies Skip(pageSize * pageIndex).Take(pageSize) to LINQ query",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/ViewModel/PaginatedItemsViewModel.cs",
+          "observation": "Constructor accepts pageSize, pageIndex parameters and populates ActualPage = pageIndex, ItemsPerPage = pageSize",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-003",
+      "title": "Price Validation: Regex Pattern and Range Constraint",
+      "given": "An admin creates a new catalog item with a price value",
+      "when": "CatalogItem.Create form is submitted with Price = '19.99'",
+      "then": "Model validation applies [RegularExpression(@\"^\\d+(\\.\\d{0,2})*$\")] and [Range(0, 1000000)] attributes, regex pattern validates format (positive decimal with max 2 decimals), Range validates 0 <= Price <= 1000000, ModelState.IsValid returns true, item is persisted",
+      "priority": "high",
+      "verification_method": "Unit test: instantiate CatalogItem with Price=19.99, call validator, assert no errors. Test with Price=19.999 (too many decimals), assert regex validation error. Test with Price=-5, assert Range validation error. Test with Price=1000001, assert Range validation error.",
+      "related_rule_ids": [
+        "BR-001"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "[RegularExpression(@\"^\\d+(\\.\\d{0,2})*$\", ErrorMessage = \"The field Price must be a positive number with maximum two decimals.\")] [Range(0, 1000000)] public decimal Price",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Models/CatalogItem.cs",
+          "observation": "Identical price validation constraints in legacy codebase",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-004",
+      "title": "Stock Availability Range Validation",
+      "given": "An admin edits a catalog item and modifies the AvailableStock field",
+      "when": "CatalogItem.Edit form is submitted with AvailableStock = '5000000'",
+      "then": "Model validation applies [Range(0, 10000000, ErrorMessage = \"The field Stock must be between 0 and 10 million.\")] attribute, Range validator confirms 0 <= AvailableStock <= 10000000, ModelState.IsValid returns true, item persists with updated stock",
+      "priority": "high",
+      "verification_method": "Unit test: instantiate CatalogItem with AvailableStock=5000000, assert validator passes. Test AvailableStock=-1, assert Range error. Test AvailableStock=10000001, assert Range error.",
+      "related_rule_ids": [
+        "BR-002"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "[Range(0, 10000000, ErrorMessage = \"The field Stock must be between 0 and 10 million.\")] public int AvailableStock",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-005",
+      "title": "Restock Threshold Validation",
+      "given": "An admin sets the RestockThreshold for a catalog item",
+      "when": "CatalogItem form is submitted with RestockThreshold = '7500000'",
+      "then": "Model validation applies [Range(0, 10000000)] attribute, validator confirms threshold within bounds, ModelState.IsValid returns true, RestockThreshold is persisted",
+      "priority": "medium",
+      "verification_method": "Unit test: test RestockThreshold at boundary (0, 10000000, outside range); verify only valid values persist",
+      "related_rule_ids": [
+        "BR-003"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "[Range(0, 10000000, ErrorMessage = \"The field Restock must be between 0 and 10 million.\")] public int RestockThreshold",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-006",
+      "title": "Max Stock Threshold Validation",
+      "given": "An admin configures the MaxStockThreshold for warehouse capacity",
+      "when": "CatalogItem form is submitted with MaxStockThreshold = '9000000'",
+      "then": "Model validation applies [Range(0, 10000000, ErrorMessage = \"The field Max stock must be between 0 and 10 million.\")] attribute, validator confirms within warehouse constraint, ModelState.IsValid returns true, MaxStockThreshold is persisted",
+      "priority": "medium",
+      "verification_method": "Unit test: test boundary values (0, 10000000, out-of-range); verify persistence only for valid thresholds",
+      "related_rule_ids": [
+        "BR-004"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "[Range(0, 10000000, ErrorMessage = \"The field Max stock must be between 0 and 10 million.\")] public int MaxStockThreshold",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-007",
+      "title": "Catalog Item Name Required and Length Validation",
+      "given": "An admin creates a new catalog item without a name or with excessive length",
+      "when": "CatalogItem.Create form is submitted with Name=null or Name.Length > 50",
+      "then": "Model validation applies [Required] and [MaxLength(50)] attributes, validator reports Name is required if null/empty, or exceeds max length error if > 50 chars, ModelState.IsValid returns false, form is re-rendered with validation error message, item is not persisted",
+      "priority": "high",
+      "verification_method": "Unit test: submit form with Name=null, assert Required error. Submit with Name='a'*51, assert MaxLength error. Submit with valid Name, assert no error and persistence.",
+      "related_rule_ids": [
+        "BR-005"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "[Required] [MaxLength(50)] public string Name",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-008",
+      "title": "Picture File Name Default Assignment",
+      "given": "An admin creates a catalog item without explicitly specifying PictureFileName",
+      "when": "CatalogItem() constructor is called with no PictureFileName parameter",
+      "then": "Constructor assigns PictureFileName = 'dummy.png' (DefaultPictureName constant), item retains this default on database insert unless overridden",
+      "priority": "medium",
+      "verification_method": "Unit test: instantiate CatalogItem() with default constructor, assert PictureFileName == 'dummy.png'. Test with explicit PictureFileName override, assert override value is retained.",
+      "related_rule_ids": [
+        "BR-006"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/CatalogItem.cs",
+          "observation": "public const string DefaultPictureName = \"dummy.png\"; constructor sets if PictureFileName not provided, [Required] attribute enforces persistence",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-009",
+      "title": "Picture URI Construction for Ported Application",
+      "given": "A catalog item is displayed in the ported eShopPorted application",
+      "when": "CatalogController.Index or Details action executes AddUriPlaceHolder() method",
+      "then": "PictureUri is constructed as '/Pics/{item.Id}.png' (relative URL path), image element src is set to this URI, when client requests /items/{itemId}/pic, PicController resolves and serves the image file",
+      "priority": "high",
+      "verification_method": "Integration test: navigate to /Catalog/Index, inspect HTML img src attributes, verify format matches '/Pics/\\d+\\.png'. Request /items/1/pic, assert HTTP 200 and image binary content returned.",
+      "related_rule_ids": [
+        "BR-008"
+      ],
+      "related_journey_ids": [
+        "UJ-001"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "AddUriPlaceHolder method sets item.PictureUri = $\"/Pics/{item.Id}.png\"",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-010",
+      "title": "Anti-Forgery Token Validation on Mutation Endpoints",
+      "given": "An admin submits a catalog item form via POST (Create, Edit, DeleteConfirmed)",
+      "when": "POST request to /Catalog/Create, /Catalog/Edit, or /Catalog/DeleteConfirmed is submitted without or with invalid __RequestVerificationToken",
+      "then": "[ValidateAntiForgeryToken] attribute intercepts request, validates token against session/cookie, if invalid or missing returns HTTP 400 Bad Request (AntiForgeryValidationException), request is not processed; if valid, form processing continues",
+      "priority": "high",
+      "verification_method": "Security test: submit POST without token, verify 400 Bad Request. Submit with valid token (captured from form), verify request succeeds. Verify token is unique per session (CSRF protection).",
+      "related_rule_ids": [
+        "BR-014"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "[ValidateAntiForgeryToken] decorates Create(POST), Edit(POST), and DeleteConfirmed(POST) methods",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Controllers/CatalogController.cs",
+          "observation": "Same CSRF protection in legacy controller",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-011",
+      "title": "Create New Catalog Item Flow",
+      "given": "An admin navigates to /Catalog/Create and completes the form with valid data",
+      "when": "CatalogController.Create(GET) loads form, admin fills Name='Test Item', Price=25.50, CatalogBrandId=2, CatalogTypeId=1, AvailableStock=100, submits POST with valid anti-forgery token",
+      "then": "POST handler validates ModelState (all required fields, price format, stock range), calls service.CreateCatalogItem(catalogItem), service persists item (legacy: assigns ID via HiLo generator, ported: EF Core assigns IDENTITY), HTTP redirect returns to /Catalog/Index, new item appears in catalog list",
+      "priority": "high",
+      "verification_method": "Integration test: load /Catalog/Create, submit valid form, verify HTTP 302 redirect to Index. Query database, verify new item exists with correct Name, Price, Brand, Type. Verify item appears in paginated list.",
+      "related_rule_ids": [
+        "BR-011"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "[HttpPost] Create(CatalogItem catalogItem) validates ModelState, calls service.CreateCatalogItem(catalogItem), redirects to Index on success",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Services/CatalogService.cs",
+          "observation": "CreateCatalogItem instantiates DbContext, adds item to _context.CatalogItems, saves changes",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-012",
+      "title": "Edit Catalog Item Flow",
+      "given": "An admin navigates to /Catalog/Edit/{id} for an existing item",
+      "when": "CatalogController.Edit(GET, id=5) loads the form, admin modifies Price from 19.99 to 24.99, updates AvailableStock from 50 to 75, submits POST with valid anti-forgery token",
+      "then": "POST handler validates ModelState, calls service.UpdateCatalogItem(catalogItem) with EntityState.Modified, service merges changes into DbContext, SaveChanges persists updates, HTTP redirect returns to /Catalog/Index, modified item reflects new values in catalog",
+      "priority": "high",
+      "verification_method": "Integration test: load /Catalog/Edit/5, verify form pre-populated with current values. Modify fields, submit, verify redirect to Index. Query item 5, verify Price and AvailableStock updated. Load Edit/5 again, verify new values displayed.",
+      "related_rule_ids": [
+        "BR-011"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "[HttpPost] Edit(CatalogItem catalogItem) validates ModelState, calls service.UpdateCatalogItem(catalogItem), redirects to Index on success",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Services/CatalogService.cs",
+          "observation": "UpdateCatalogItem sets DbContext entry to EntityState.Modified and SaveChanges()",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-013",
+      "title": "Delete Catalog Item Flow",
+      "given": "An admin navigates to /Catalog/Delete/{id} to remove an item",
+      "when": "CatalogController.Delete(GET, id=3) displays confirmation, admin clicks delete, POST to DeleteConfirmed(id=3) with valid anti-forgery token",
+      "then": "DeleteConfirmed handler calls service.RemoveCatalogItem(id), service loads item from DbContext, removes item, SaveChanges commits deletion, HTTP redirect returns to /Catalog/Index, deleted item no longer appears in catalog",
+      "priority": "high",
+      "verification_method": "Integration test: load /Catalog/Delete/3, verify confirmation page shows item details. Submit delete, verify HTTP 302 redirect. Query item 3 from database, verify it does not exist. Load /Catalog/Index, verify item 3 missing from list.",
+      "related_rule_ids": [
+        "BR-011"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "[HttpPost, ActionName(\"Delete\")] DeleteConfirmed(int id) calls service.RemoveCatalogItem(id), redirects to Index",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Services/CatalogService.cs",
+          "observation": "RemoveCatalogItem finds item by id, removes from DbContext, SaveChanges",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-014",
+      "title": "Image MIME Type Resolution for Picture Serving",
+      "given": "A client requests an image via /items/{itemId}/pic",
+      "when": "PicController.Index(catalogItemId=2) is invoked, item has PictureFileName='test.png'",
+      "then": "PicController.GetImageMimeTypeFromImageFileExtension(imageFileExtension) extracts extension '.png' and returns 'image/png', file is read from disk, response is returned with Content-Type header set to 'image/png', image displays correctly in browser",
+      "priority": "medium",
+      "verification_method": "Integration test: load /items/1/pic, verify HTTP 200 response. Check Content-Type header, assert matches expected MIME type for image format. Test multiple extensions (.jpg, .png, .gif, etc.), verify each returns correct MIME type.",
+      "related_rule_ids": [
+        "BR-012"
+      ],
+      "related_journey_ids": [
+        "UJ-001"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/PicController.cs",
+          "observation": "GetImageMimeTypeFromImageFileExtension switches on extension: '.png' \u2192 'image/png', '.jpg'|'.jpeg' \u2192 'image/jpeg', '.gif' \u2192 'image/gif', default \u2192 'application/octet-stream'",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-015",
+      "title": "REST API GET /api/brands Endpoint",
+      "given": "A client requests the catalog brands API endpoint",
+      "when": "GET /api/brands is invoked",
+      "then": "BrandsController.Index() calls service.GetCatalogBrands(), returns IActionResult Ok(brands) with JSON-serialized list of CatalogBrand objects (Id, Brand properties), HTTP 200 response with Content-Type: application/json, client receives all available catalog brands",
+      "priority": "medium",
+      "verification_method": "Integration test: GET /api/brands, verify HTTP 200. Parse JSON response, verify it contains array of objects with Id and Brand properties. Verify all 5 preconfigured brands present (Azure, .NET, Visual Studio, SQL Server, Other).",
+      "related_rule_ids": [
+        "BR-013"
+      ],
+      "related_journey_ids": [],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/Api/BrandsController.cs",
+          "observation": "[ApiController] public IActionResult Index() => Ok(_service.GetCatalogBrands())",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-016",
+      "title": "REST API DELETE /api/brands/{id} Endpoint",
+      "given": "A client requests deletion of a brand via REST API",
+      "when": "DELETE /api/brands/{id} is invoked with id=2 (.NET brand)",
+      "then": "BrandsController.Delete(id=2) calls service.GetCatalogBrands().FirstOrDefault(b => b.Id == 2), if found removes brand and returns Ok(), if not found returns NotFound(), HTTP 404 response if brand not found, HTTP 200 if deleted",
+      "priority": "medium",
+      "verification_method": "Integration test: DELETE /api/brands/2, verify HTTP 200 Ok response. GET /api/brands, verify brand 2 no longer in list. DELETE /api/brands/999, verify HTTP 404 NotFound.",
+      "related_rule_ids": [
+        "BR-013"
+      ],
+      "related_journey_ids": [],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/Api/BrandsController.cs",
+          "observation": "[HttpDelete(\"{id}\")] public IActionResult Delete(int id) => brand == null ? NotFound() : Ok()",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-017",
+      "title": "Reference Data Seeding: Catalog Brands",
+      "given": "A new database is initialized or EF Core migration 'Initial' is applied",
+      "when": "CatalogDBContext applies HasData() configuration for CatalogBrand",
+      "then": "5 catalog brands are inserted (Id 1-5): Azure, .NET, Visual Studio, SQL Server, Other; each brand retains its seeded ID and Name across environment resets, brands are available in dropdown selectors on Create/Edit forms",
+      "priority": "high",
+      "verification_method": "Integration test: apply migration, query CatalogBrand table, verify exactly 5 rows exist with expected names and IDs. Load /Catalog/Create, inspect ViewBag.CatalogBrandId SelectList, verify all 5 brands present in dropdown.",
+      "related_rule_ids": [
+        "BR-013"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/Config/CatalogBrandConfig.cs",
+          "observation": "builder.HasData(PreconfiguredData.GetPreconfiguredCatalogBrands()) applies HasData() seeding with 5 hardcoded brands",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Models/Infrastructure/PreconfiguredData.cs",
+          "observation": "GetPreconfiguredCatalogBrands returns List<CatalogBrand> with Azure, .NET, Visual Studio, SQL Server, Other",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-018",
+      "title": "Reference Data Seeding: Catalog Types",
+      "given": "A new database is initialized or EF Core migration 'Initial' is applied",
+      "when": "CatalogDBContext applies HasData() configuration for CatalogType",
+      "then": "4 catalog types are inserted (Id 1-4): Mug, T-Shirt, Sheet, USB Memory Stick; types are available in dropdown selectors on Create/Edit forms, type IDs persist across environment resets",
+      "priority": "high",
+      "verification_method": "Integration test: apply migration, query CatalogType table, verify 4 rows with expected types and IDs. Load /Catalog/Create, verify ViewBag.CatalogTypeId SelectList contains all 4 types.",
+      "related_rule_ids": [
+        "BR-013"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Models/Config/CatalogTypeConfig.cs",
+          "observation": "builder.HasData(...) inline HasData() with 4 CatalogType instances: Mug, T-Shirt, Sheet, USB Memory Stick",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Models/Infrastructure/PreconfiguredData.cs",
+          "observation": "GetPreconfiguredCatalogTypes returns hardcoded list of 4 types",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-019",
+      "title": "Model Validation Error Display on Create Form Failure",
+      "given": "An admin submits a catalog item creation form with invalid data (e.g., Name=null, Price=invalid format)",
+      "when": "CatalogController.Create(POST, catalogItem) is called with invalid ModelState",
+      "then": "[ValidateAntiForgeryToken] passes, ModelState.IsValid returns false, controller repopulates ViewBag.CatalogBrandId and ViewBag.CatalogTypeId SelectLists, returns View(catalogItem) with the same form, HTML form helper displays validation error messages for each invalid field (e.g., 'Name is required', 'Price must match pattern'), user can correct and resubmit",
+      "priority": "high",
+      "verification_method": "Integration test: POST /Catalog/Create with missing Name, verify HTTP 200 form re-render (not redirect). Inspect HTML, verify validation error messages displayed. Verify form retains submitted values for resubmission. Test price regex error, verify 'positive number with maximum two decimals' error shown.",
+      "related_rule_ids": [
+        "BR-005",
+        "BR-001"
+      ],
+      "related_journey_ids": [
+        "UJ-002"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "[HttpPost] Create(CatalogItem) checks if (!ModelState.IsValid) then returns View(catalogItem) with popul ViewBag dropdowns",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "criterion_id": "AC-020",
+      "title": "Catalog Item Details View",
+      "given": "A user clicks 'Details' link for a catalog item or navigates to /Catalog/Details/{id}",
+      "when": "CatalogController.Details(id=5) is invoked",
+      "then": "If id is null, returns BadRequest(). If item not found, returns NotFound(). If found, service.FindCatalogItem(id) retrieves item, AddUriPlaceHolder() sets PictureUri, View displays item details (Name, Description, Price, Brand, Type, Stock levels, Picture), user can navigate back or edit",
+      "priority": "high",
+      "verification_method": "Integration test: GET /Catalog/Details/5, verify HTTP 200 and item details displayed. GET /Catalog/Details/null or /Catalog/Details/999, verify HTTP 400/404. Verify image URI constructed as /Pics/5.png.",
+      "related_rule_ids": [
+        "BR-011"
+      ],
+      "related_journey_ids": [
+        "UJ-001"
+      ],
+      "related_contract_ids": [],
+      "related_requirement_ids": [],
+      "evidence": [
+        {
+          "source_path": "eShopPorted/Controllers/CatalogController.cs",
+          "observation": "Details(id?) returns BadRequest if null, NotFound if item not found, View(catalogItem) if found",
+          "symbol": null
+        }
+      ]
+    }
+  ],
+  "coverage_gaps": [
+    "Conditional service registration logic (UseMockData vs real service) not explicitly evidenced in DI modules \u2014 test coverage for mock vs real service switching unclear",
+    "Reorder logic trigger conditions (OnReorder = true) not documented or tested \u2014 when/why does stock status change OnReorder flag?",
+    "Database transaction semantics for concurrent creates/updates not evidenced \u2014 potential race condition risk in distributed scenarios",
+    "Legacy HiLo ID generation conflict resolution not covered in ported app \u2014 how are legacy IDs migrated to EF Core IDENTITY without collision?",
+    "File storage location for PictureFileName not fully specified \u2014 legacy uses Server.MapPath('~/Pics'), ported location unclear",
+    "MIME type resolution for unknown extensions (default 'application/octet-stream') behavior not validated in test cases",
+    "Picture file not-found handling (item.PictureFileName = 'missing.png') not explicitly covered \u2014 does PicController return 404 or fallback?",
+    "REST API error scenarios (serialization failures, database errors) not fully specified for Brands/Files endpoints"
+  ],
+  "unresolved_questions": [
+    "How is the UseMockData flag in appsettings.json conditionally wired in the Autofac DI container? The logic is not evident in eShopPorted/Modules/ApplicationModule.cs.",
+    "Does the legacy app also support conditional mock/real service selection, and if so, what is the configuration mechanism?",
+    "When does CatalogItem.OnReorder flag change from false to true? Is this a manual admin action or automatic based on AvailableStock < RestockThreshold?",
+    "In the ported app, where are image files physically stored? Is it a configurable path, or does PicController expect files in a specific relative location?",
+    "For the legacy app's HiLo ID generation, what happens if the sequence reaches its maximum value? Is there overflow handling?",
+    "Are there any business rules governing updates to already-persisted items? E.g., can CatalogTypeId or CatalogBrandId be changed post-creation, or is that prohibited?"
+  ],
+  "confidence": 0.68
+}

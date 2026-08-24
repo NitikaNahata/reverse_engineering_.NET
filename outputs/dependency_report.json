@@ -1,0 +1,468 @@
+{
+  "summary": "The repository contains two parallel .NET web applications (legacy ASP.NET MVC5/WebAPI2 on classic .NET Framework 4.7.2 and a 'ported' ASP.NET Core 2.2-style app that still targets net461 via Microsoft.NET.Sdk.Web) plus a shared eShopLegacy.Utilities library. Dependency evidence shows heavy duplication of NuGet packages across both csproj files (Autofac, log4net, Newtonsoft.Json, WebGrease, Antlr) with mismatched or inconsistent versions, a legacy app still using packages.config alongside migrated PackageReference entries, EF6 in the legacy app vs EF Core 2.2.6 in the ported app, and Application Insights/telemetry packages present only in the legacy project. The ported project's continued net461 targeting despite ASP.NET Core package references represents a significant compatibility risk since several ASP.NET Core packages (Microsoft.AspNetCore, Microsoft.AspNetCore.Mvc, EFCore.SqlServer) are designed for netcoreapp/netstandard runtimes and have limited or altered behavior on net461.",
+  "dependencies": [
+    {
+      "name": "EntityFramework",
+      "ecosystem": "NuGet",
+      "current_version": "6.2.0",
+      "category": "ORM/data-access",
+      "status": "outdated",
+      "usage": "Legacy CatalogDBContext uses classic EF6 DbModelBuilder pattern for SQL Server access via LocalDB connection string in Web.config.",
+      "recommendation": "Plan migration to EF Core to align with the ported app; EF6 is in maintenance mode with no new feature development.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "PackageReference EntityFramework Version 6.2.0, plus a duplicate legacy <Reference> HintPath entry to packages/EntityFramework.6.2.0.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Web.config",
+          "observation": "entityFramework config section declares EntityFramework, Version=6.0.0.0 provider registration for SqlServer.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.EntityFrameworkCore / .SqlServer / .Design / .Relational",
+      "ecosystem": "NuGet",
+      "current_version": "2.2.6",
+      "category": "ORM/data-access",
+      "status": "deprecated",
+      "usage": "Ported app's CatalogDBContext uses EF Core 2.2 ModelBuilder with IEntityTypeConfiguration and code-first Migrations.",
+      "recommendation": "EF Core 2.2 is out of support (support ended Dec 2019); upgrade to a supported EF Core LTS version (e.g., 6.0/8.0) alongside a real .NET (not net461) target framework.",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference Microsoft.EntityFrameworkCore, .Design, .Relational, .SqlServer all pinned to Version 2.2.6.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Models/CatalogDBContext.cs",
+          "observation": "EF Core DbContext with DbSet<CatalogItem/Brand/Type> and ApplyConfigurationsFromAssembly.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.AspNetCore / Microsoft.AspNetCore.Mvc / Microsoft.AspNetCore.StaticFiles",
+      "ecosystem": "NuGet",
+      "current_version": "2.2.0",
+      "category": "web framework",
+      "status": "deprecated",
+      "usage": "Ported app's Startup.cs/Program.cs configure Kestrel/IWebHostBuilder and MVC middleware pipeline using ASP.NET Core 2.2 packages.",
+      "recommendation": "ASP.NET Core 2.2 reached end of support in Dec 2019; upgrade to a current LTS release and retarget the project to netcoreapp/net so the packages are used on their intended runtime rather than net461.",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference entries for Microsoft.AspNetCore, Microsoft.AspNetCore.Mvc, Microsoft.AspNetCore.StaticFiles all at Version 2.2.0 combined with <TargetFramework>net461</TargetFramework>.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/Startup.cs",
+          "observation": "Startup.ConfigureServices/Configure wires ASP.NET Core middleware pipeline.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Autofac / Autofac.Mvc5 / Autofac.Extensions.DependencyInjection",
+      "ecosystem": "NuGet",
+      "current_version": "4.9.1 / 4.0.2 / 4.4.0 (ported); 6.1.0/4.0.2 (legacy, version-conflicted)",
+      "category": "dependency injection",
+      "status": "outdated",
+      "usage": "Both apps use Autofac ContainerBuilder-based ApplicationModule classes for DI; ported app also uses Autofac.Extensions.DependencyInjection to bridge into ASP.NET Core's IServiceCollection.",
+      "recommendation": "Consolidate on a single, current Autofac major version across both projects and resolve the version mismatch between the csproj PackageReference (Autofac 4.9.1) and Web.config bindingRedirect (Autofac 6.1.0) in the legacy app.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "PackageReference Autofac Version 6.1.0 declared in ItemGroup.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Web.config",
+          "observation": "Autofac bindingRedirect targets oldVersion 0.0.0.0-6.1.0.0 newVersion 6.1.0.0, but packages.config lists Autofac version 4.9.1, indicating a version mismatch.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference Autofac Version 4.9.1 and Autofac.Extensions.DependencyInjection Version 4.4.0.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "log4net",
+      "ecosystem": "NuGet",
+      "current_version": "2.0.10",
+      "category": "logging",
+      "status": "supported",
+      "usage": "Both legacy and ported apps reference log4net 2.0.10 for logging; legacy app configures a RollingFileAppender via log4Net.xml.",
+      "recommendation": "Version is consistent across both apps and reasonably current; keep monitoring for newer 2.x releases addressing security patches.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "PackageReference log4net Version 2.0.10 (also duplicated in packages.config).",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference log4net Version 2.0.10, identical to legacy app.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/log4Net.xml",
+          "observation": "RollingFileAppender configuration consumed by log4net at runtime.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Newtonsoft.Json",
+      "ecosystem": "NuGet",
+      "current_version": "12.0.1 (legacy) / 13.0.2 (ported)",
+      "category": "serialization",
+      "status": "supported",
+      "usage": "Used for JSON formatting in legacy Web API endpoints and referenced in the ported app's csproj though ASP.NET Core 2.2 MVC formatters may default to System.Text.Json-compatible behavior or require Microsoft.AspNetCore.Mvc.NewtonsoftJson.",
+      "recommendation": "Align on a single Newtonsoft.Json version across both projects; verify the ported app actually wires Newtonsoft formatters into MVC since AspNetCore.Mvc 2.2 does not add Newtonsoft support automatically.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "PackageReference Newtonsoft.Json Version 12.0.1 plus explicit Reference with HintPath to packages/Newtonsoft.Json.12.0.1.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference Newtonsoft.Json Version 13.0.2, a newer version than the legacy app's 12.0.1.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Web.config",
+          "observation": "bindingRedirect for Newtonsoft.Json targets newVersion 12.0.0.0, consistent with the legacy package version but not the ported app's 13.0.2.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.AspNet.WebApi / .Client / .Core / .WebHost",
+      "ecosystem": "NuGet",
+      "current_version": "5.2.7",
+      "category": "web API framework",
+      "status": "deprecated",
+      "usage": "Legacy app's Web API controllers (BrandsController, FilesController, CatalogController) run on classic ASP.NET Web API 2 hosted in IIS via Global.asax/App_Start/WebApiConfig.",
+      "recommendation": "Web API 2 (System.Web.Http based) has no further feature development; migrate controller logic to ASP.NET Core MVC/Web API equivalents already partially present in eShopPorted.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "PackageReference entries for Microsoft.AspNet.WebApi, .Client, .Core, .WebHost all pinned to 5.2.7.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/App_Start/WebApiConfig.cs",
+          "observation": "Configures System.Web.Http.HttpConfiguration routes for the legacy Web API pipeline.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.ApplicationInsights.* (Web, DependencyCollector, PerfCounterCollector, WindowsServer, Agent.Intercept, WindowsServer.TelemetryChannel)",
+      "ecosystem": "NuGet",
+      "current_version": "2.9.1 (2.4.0 for Agent.Intercept)",
+      "category": "telemetry/monitoring",
+      "status": "outdated",
+      "usage": "Legacy app only: configured via ApplicationInsights.config and referenced HintPath assemblies to provide request/dependency telemetry for the classic ASP.NET pipeline.",
+      "recommendation": "No equivalent telemetry package exists in eShopPorted; either port using Microsoft.ApplicationInsights.AspNetCore or adopt OpenTelemetry to close the observability gap before decommissioning the legacy app.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "Multiple Reference/HintPath entries for Microsoft.AI.* assemblies sourced from Microsoft.ApplicationInsights.* NuGet packages at version 2.9.1.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/ApplicationInsights.config",
+          "observation": "Full ApplicationInsights telemetry module/processor configuration present only in the legacy project.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/packages.config",
+          "observation": "packages.config lists Microsoft.ApplicationInsights.* packages absent from eShopPorted.csproj.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "Antlr",
+      "ecosystem": "NuGet",
+      "current_version": "3.5.0.2",
+      "category": "parser/runtime dependency (transitive, likely via WebGrease/bundling)",
+      "status": "outdated",
+      "usage": "Declared directly in both csproj files though not evidently used by application code; likely a transitive dependency pulled in for the ASP.NET bundling/optimization pipeline (WebGrease).",
+      "recommendation": "Verify whether Antlr is truly required in the ported net461 ASP.NET Core project; if it's only needed for legacy Web.Optimization bundling, remove it from eShopPorted once bundling is replaced by a modern asset pipeline.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/packages.config",
+          "observation": "package id=Antlr version=3.5.0.2 targetFramework=net472 declared.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference Antlr Version 3.5.0.2 declared identically in the ported project.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "WebGrease",
+      "ecosystem": "NuGet",
+      "current_version": "1.6.0",
+      "category": "bundling/minification library",
+      "status": "deprecated",
+      "usage": "Supports System.Web.Optimization (BundleConfig.cs) bundling/minification pipeline in the legacy MVC app; also referenced in the ported csproj despite ASP.NET Core not using this bundling model.",
+      "recommendation": "Remove WebGrease from eShopPorted since ASP.NET Core does not use System.Web.Optimization; replace bundling in both apps with a modern build tool (webpack, esbuild, or BundlerMinifier).",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/App_Start/BundleConfig.cs",
+          "observation": "Configures System.Web.Optimization bundles consumed by WebGrease at runtime.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference WebGrease Version 1.6.0 present despite the app targeting ASP.NET Core hosting model.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Web.config",
+          "observation": "bindingRedirect for WebGrease targets newVersion 1.6.5135.21930.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": ".NET Framework runtime (net461/net472/net47.2)",
+      "ecosystem": ".NET",
+      "current_version": "net461 (eShopPorted) / v4.7.2 (eShopLegacyMVC, compiled with httpRuntime targetFramework 4.6.1)",
+      "category": "runtime/target framework",
+      "status": "deprecated",
+      "usage": "Both the legacy and 'ported' applications target classic .NET Framework versions rather than a modern .NET (Core/5+) TFM; eShopPorted uses Microsoft.NET.Sdk.Web with ASP.NET Core packages but still compiles against net461.",
+      "recommendation": "Retarget eShopPorted to a supported netcoreapp/net (e.g., net8.0) TFM to realize genuine modernization benefits (cross-platform hosting, current EF Core, current ASP.NET Core support); plan a full .NET Framework exit for eShopLegacyMVC as well.",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "<TargetFramework>net461</TargetFramework> combined with Sdk=\"Microsoft.NET.Sdk.Web\".",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "<TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion> declared for the legacy project.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Web.config",
+          "observation": "<compilation debug=\"true\" targetFramework=\"4.7.2\" /> and <httpRuntime targetFramework=\"4.6.1\" /> both present, showing inconsistent framework declarations within the same app.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "name": "packages.config (legacy NuGet management)",
+      "ecosystem": "NuGet tooling",
+      "current_version": null,
+      "category": "build/package management format",
+      "status": "deprecated",
+      "usage": "eShopLegacyMVC.csproj mixes packages.config-style <Reference>/HintPath entries with modern <PackageReference> entries for the same packages (e.g., EntityFramework, Newtonsoft.Json), indicating an incomplete migration.",
+      "recommendation": "Complete migration to PackageReference-only format using the repository's own Convert-ToPackageReference.ps1 script, then remove packages.config and redundant HintPath references.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/packages.config",
+          "observation": "Declares 40 packages including EntityFramework 6.2.0, Newtonsoft.Json 12.0.1, Autofac 4.9.1 in packages.config XML format.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "Same project contains both <PackageReference Include=\"EntityFramework\"><Version>6.2.0</Version></PackageReference> and a duplicate <Reference Include=\"EntityFramework...\"><HintPath>..\\..\\packages\\EntityFramework.6.2.0\\...</HintPath></Reference>.",
+          "symbol": null
+        }
+      ]
+    }
+  ],
+  "compatibility_issues": [
+    {
+      "title": "ASP.NET Core 2.2 / EF Core packages targeting net461 instead of a modern .NET TFM",
+      "severity": "high",
+      "description": "eShopPorted.csproj uses Microsoft.NET.Sdk.Web and references ASP.NET Core 2.2 and EF Core 2.2.6 packages, but the project's TargetFramework is net461 (classic .NET Framework), not netcoreapp2.2 or a modern net TFM. Several ASP.NET Core/EF Core features and hosting behaviors (e.g., full Kestrel cross-platform support, some middleware) assume a .NET Core runtime; running on net461 can cause missing APIs, different default behaviors, and blocks any future upgrade path to non-Windows hosting.",
+      "affected_dependencies": [
+        "Microsoft.AspNetCore",
+        "Microsoft.AspNetCore.Mvc",
+        "Microsoft.AspNetCore.StaticFiles",
+        "Microsoft.EntityFrameworkCore",
+        "Microsoft.EntityFrameworkCore.SqlServer"
+      ],
+      "remediation": "Change eShopPorted.csproj TargetFramework to a supported .NET (Core) TFM such as net6.0 or net8.0, and upgrade all ASP.NET Core/EF Core packages to versions compatible with that TFM.",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "<TargetFramework>net461</TargetFramework> declared alongside PackageReference Microsoft.AspNetCore Version 2.2.0 and Microsoft.EntityFrameworkCore Version 2.2.6.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Autofac version mismatch between legacy csproj PackageReference and Web.config bindingRedirect",
+      "severity": "medium",
+      "description": "src/eShopLegacyMVC/packages.config lists Autofac version 4.9.1, but eShopLegacyMVC.csproj declares PackageReference Autofac Version 6.1.0, and Web.config's assemblyBinding bindingRedirect for Autofac targets newVersion 6.1.0.0. This inconsistency across the three sources of truth (packages.config, csproj, Web.config) can cause assembly load failures or silently load an unintended Autofac version at runtime.",
+      "affected_dependencies": [
+        "Autofac"
+      ],
+      "remediation": "Reconcile the Autofac version declared in packages.config, eShopLegacyMVC.csproj PackageReference, and the Web.config bindingRedirect so all three reference the same resolved version; consider removing packages.config entirely once fully migrated to PackageReference.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/packages.config",
+          "observation": "package id=\"Autofac\" version=\"4.9.1\" targetFramework=\"net472\".",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "PackageReference Include=\"Autofac\"><Version>6.1.0</Version>.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/Web.config",
+          "observation": "bindingRedirect assemblyIdentity name=\"Autofac\" oldVersion=\"0.0.0.0-6.1.0.0\" newVersion=\"6.1.0.0\".",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Newtonsoft.Json version divergence between legacy and ported apps",
+      "severity": "low",
+      "description": "The legacy app pins Newtonsoft.Json to 12.0.1 (matching its Web.config bindingRedirect to 12.0.0.0), while the ported app references Newtonsoft.Json 13.0.2. Because both projects reference the shared eShopLegacy.Utilities library and exchange serialized DTOs conceptually, divergent JSON library versions across the solution increase risk of subtle serialization behavior differences if JSON-based endpoints are later unified or compared.",
+      "affected_dependencies": [
+        "Newtonsoft.Json"
+      ],
+      "remediation": "Standardize on a single Newtonsoft.Json version (preferably the latest stable, 13.x) across both eShopLegacyMVC.csproj and eShopPorted.csproj, updating the legacy Web.config bindingRedirect accordingly.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "PackageReference Newtonsoft.Json Version 12.0.1.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference Newtonsoft.Json Version 13.0.2.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Duplicate/legacy-style Reference+HintPath entries coexisting with PackageReference in the same csproj",
+      "severity": "medium",
+      "description": "eShopLegacyMVC.csproj contains, for multiple packages (EntityFramework, Newtonsoft.Json, Pipelines.Sockets.Unofficial, System.Buffers, System.Diagnostics.DiagnosticSource, System.Diagnostics.PerformanceCounter, System.IO.Compression, System.IO.Compression.ZipFile, System.IO.Pipelines, System.Memory, System.Numerics.Vectors, System.Runtime.CompilerServices.Unsafe, System.Threading.Channels, System.Threading.Tasks.Extensions), both a PackageReference entry and a classic <Reference> with an explicit packages-folder HintPath. This dual declaration pattern is characteristic of an incomplete/partial conversion via the repository's Convert-ToPackageReference.ps1 tool and can cause MSBuild ambiguity or duplicate assembly resolution warnings.",
+      "affected_dependencies": [
+        "EntityFramework",
+        "Newtonsoft.Json",
+        "Pipelines.Sockets.Unofficial",
+        "System.Buffers",
+        "System.Diagnostics.DiagnosticSource",
+        "System.Diagnostics.PerformanceCounter",
+        "System.IO.Compression",
+        "System.IO.Compression.ZipFile",
+        "System.IO.Pipelines",
+        "System.Memory",
+        "System.Numerics.Vectors",
+        "System.Runtime.CompilerServices.Unsafe",
+        "System.Threading.Channels",
+        "System.Threading.Tasks.Extensions"
+      ],
+      "remediation": "Re-run/complete the Convert-ToPackageReference.ps1 migration and remove all redundant <Reference>/HintPath entries once packages.config is deleted, leaving only PackageReference entries.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "Contains both <PackageReference Include=\"EntityFramework\"><Version>6.2.0</Version></PackageReference> and <Reference Include=\"EntityFramework, Version=6.0.0.0...\"><HintPath>..\\..\\packages\\EntityFramework.6.2.0\\lib\\net45\\EntityFramework.dll</HintPath></Reference>.",
+          "symbol": null
+        },
+        {
+          "source_path": "Convert-ToPackageReference.ps1",
+          "observation": "Repository includes a dedicated PowerShell script for converting packages.config references to PackageReference format, implying migration is not yet complete.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "WebGrease/Antlr bundling dependencies present in ASP.NET Core project despite incompatible bundling model",
+      "severity": "low",
+      "description": "eShopPorted.csproj references WebGrease 1.6.0 and Antlr 3.5.0.2, both of which exist to support the classic System.Web.Optimization bundling pipeline used only by the legacy app's App_Start/BundleConfig.cs. ASP.NET Core does not use System.Web.Optimization, so these dependencies are likely dead weight in the ported project, inflating the dependency surface without functional benefit.",
+      "affected_dependencies": [
+        "WebGrease",
+        "Antlr"
+      ],
+      "remediation": "Remove WebGrease and Antlr from eShopPorted.csproj unless a specific ported bundling mechanism depends on them; adopt a modern client-asset bundler if bundling is still required.",
+      "evidence": [
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "PackageReference WebGrease Version 1.6.0 and PackageReference Antlr Version 3.5.0.2 both present with no corresponding BundleConfig.cs in eShopPorted.",
+          "symbol": null
+        },
+        {
+          "source_path": "src/eShopLegacyMVC/App_Start/BundleConfig.cs",
+          "observation": "Only the legacy project contains a BundleConfig.cs consuming WebGrease/System.Web.Optimization.",
+          "symbol": null
+        }
+      ]
+    },
+    {
+      "title": "Application Insights telemetry present only in legacy app, missing modern equivalent in ported app",
+      "severity": "medium",
+      "description": "The legacy project includes a full Application Insights package set (Microsoft.ApplicationInsights.Web/DependencyCollector/PerfCounterCollector/WindowsServer/Agent.Intercept) and an ApplicationInsights.config file, but eShopPorted.csproj has no telemetry/monitoring package reference at all, creating an observability gap once traffic shifts to the ported app.",
+      "affected_dependencies": [
+        "Microsoft.ApplicationInsights.Web",
+        "Microsoft.ApplicationInsights.DependencyCollector",
+        "Microsoft.ApplicationInsights.PerfCounterCollector",
+        "Microsoft.ApplicationInsights.WindowsServer",
+        "Microsoft.ApplicationInsights.Agent.Intercept"
+      ],
+      "remediation": "Add Microsoft.ApplicationInsights.AspNetCore (or an OpenTelemetry-based alternative compatible with the eventual target framework) to eShopPorted.csproj and configure equivalent telemetry initializers/modules before decommissioning the legacy app.",
+      "evidence": [
+        {
+          "source_path": "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+          "observation": "References multiple Microsoft.AI.* assemblies backed by Microsoft.ApplicationInsights.* NuGet packages.",
+          "symbol": null
+        },
+        {
+          "source_path": "eShopPorted/eShopPorted.csproj",
+          "observation": "No Microsoft.ApplicationInsights.* PackageReference present in the full dependency list.",
+          "symbol": null
+        }
+      ]
+    }
+  ],
+  "migration_order": [
+    "Complete packages.config -> PackageReference conversion in eShopLegacyMVC using Convert-ToPackageReference.ps1, removing duplicate Reference/HintPath entries",
+    "Reconcile and pin consistent versions for shared cross-project dependencies (Autofac, Newtonsoft.Json, log4net) across eShopLegacyMVC.csproj, eShopPorted.csproj, and Web.config bindingRedirects",
+    "Retarget eShopPorted.csproj from net461 to a supported .NET (Core) TFM (e.g., net8.0)",
+    "Upgrade ASP.NET Core packages in eShopPorted from 2.2.0 to a current supported version compatible with the new TFM",
+    "Upgrade Microsoft.EntityFrameworkCore.* packages in eShopPorted from 2.2.6 to a current supported EF Core version, regenerating migrations as needed",
+    "Remove unused/legacy bundling dependencies (WebGrease, Antlr) from eShopPorted.csproj",
+    "Port Application Insights (or replacement) telemetry configuration from eShopLegacyMVC to eShopPorted",
+    "Replace BinaryFormatter-based Serializing.cs in eShopLegacy.Utilities with a safe serialization mechanism (e.g., System.Text.Json) since BinaryFormatter is removed/obsoleted in modern .NET",
+    "Migrate legacy EF6 CatalogDBContext/HiLo raw-SQL generator logic to EF Core-native patterns already established in eShopPorted",
+    "Decommission eShopLegacyMVC (Microsoft.AspNet.WebApi 5.2.7, System.Web.Mvc 5.2.7) once eShopPorted reaches feature and telemetry parity"
+  ],
+  "source_files_read": [
+    "eShopLegacy.Utilities/eShopLegacy.Utilities.csproj",
+    "eShopLegacyMVC.sln",
+    "eShopPorted/Properties/launchSettings.json",
+    "eShopPorted/Views/Web.config",
+    "eShopPorted/app.config",
+    "eShopPorted/appsettings.Development.json",
+    "eShopPorted/appsettings.json",
+    "eShopPorted/eShopPorted.csproj",
+    "src/eShopLegacyMVC/ApplicationInsights.config",
+    "src/eShopLegacyMVC/Views/Web.config",
+    "src/eShopLegacyMVC/Web.Debug.config",
+    "src/eShopLegacyMVC/Web.Release.config",
+    "src/eShopLegacyMVC/Web.config",
+    "src/eShopLegacyMVC/eShopLegacyMVC.csproj",
+    "src/eShopLegacyMVC/log4Net.xml",
+    "src/eShopLegacyMVC/packages.config"
+  ],
+  "confidence": 0.7
+}
