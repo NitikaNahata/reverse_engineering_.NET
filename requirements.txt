@@ -1,0 +1,6 @@
+pydantic>=2.0
+langgraph
+langchain
+langchain-anthropic
+python-dotenv
+pytest
