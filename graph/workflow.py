@@ -104,11 +104,21 @@ def build_workflow(
     )
     builder.add_edge(START, "architecture_discovery")
     builder.add_edge("architecture_discovery", "dependency_analysis")
+    # These three analyses depend on the same foundation reports and can run
+    # concurrently because they write to distinct state fields.
     builder.add_edge("dependency_analysis", "business_rules_extraction")
+    builder.add_edge("dependency_analysis", "api_events_extraction")
+    builder.add_edge("dependency_analysis", "nfr_extraction")
+
+    # Data transformations can depend on business rules, so this branch stays
+    # sequential after business-rule extraction.
     builder.add_edge("business_rules_extraction", "data_mapping_extraction")
-    builder.add_edge("data_mapping_extraction", "api_events_extraction")
-    builder.add_edge("api_events_extraction", "nfr_extraction")
-    builder.add_edge("nfr_extraction", "acceptance_criteria_synthesis")
+
+    # Acceptance synthesis requires all parallel branches to be complete.
+    builder.add_edge(
+        ["data_mapping_extraction", "api_events_extraction", "nfr_extraction"],
+        "acceptance_criteria_synthesis",
+    )
     builder.add_edge("acceptance_criteria_synthesis", END)
     return builder.compile()
 

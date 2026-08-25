@@ -1,4 +1,5 @@
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -33,6 +34,25 @@ class _FakeModel:
     def with_structured_output(self, schema, **kwargs):
         assert kwargs == {"method": "json_schema"}
         return _StructuredModel(self.report)
+
+
+class _BarrierStructuredModel(_StructuredModel):
+    def __init__(self, report, barrier: threading.Barrier):
+        super().__init__(report)
+        self.barrier = barrier
+
+    def invoke(self, messages):
+        self.barrier.wait(timeout=2)
+        return super().invoke(messages)
+
+
+class _BarrierFakeModel(_FakeModel):
+    def __init__(self, report, barrier: threading.Barrier):
+        super().__init__(report)
+        self.barrier = barrier
+
+    def with_structured_output(self, schema, **kwargs):
+        return _BarrierStructuredModel(self.report, self.barrier)
 
 
 def test_nested_journey_evidence_is_validated(tmp_path: Path) -> None:
@@ -95,3 +115,45 @@ def test_complete_pipeline_runs_with_structured_fake_models(tmp_path: Path) -> N
 
     assert result["acceptance_criteria"].summary == "Acceptance"
     assert result["api_events"].no_events_found is True
+
+
+def test_business_api_and_nfr_execute_in_parallel(tmp_path: Path) -> None:
+    inventory = tmp_path / "inventory.json"
+    graph = tmp_path / "graph.json"
+    inventory.write_text(
+        json.dumps({"total_files": 0, "categories": {}}), encoding="utf-8"
+    )
+    graph.write_text(json.dumps({"nodes": [], "links": []}), encoding="utf-8")
+    barrier = threading.Barrier(3)
+
+    workflow = build_workflow(
+        _FakeModel(ArchitectureReport(summary="Architecture", confidence=0.9)),
+        _FakeModel(DependencyReport(summary="Dependencies", confidence=0.9)),
+        _BarrierFakeModel(
+            BusinessRulesReport(summary="Rules", confidence=0.9), barrier
+        ),
+        _FakeModel(DataMappingReport(summary="Data", confidence=0.9)),
+        _BarrierFakeModel(
+            ApiEventsReport(summary="APIs", no_events_found=True, confidence=0.9),
+            barrier,
+        ),
+        _BarrierFakeModel(
+            NonFunctionalReport(summary="NFRs", confidence=0.9), barrier
+        ),
+        _FakeModel(AcceptanceCriteriaReport(summary="Acceptance", confidence=0.9)),
+    )
+    result = workflow.invoke(
+        {
+            "repository_root": str(tmp_path),
+            "inventory_path": str(inventory),
+            "code_graph_path": str(graph),
+            "source_paths": [],
+            "dependency_source_paths": [],
+            "business_source_paths": [],
+            "data_source_paths": [],
+            "api_source_paths": [],
+            "nfr_source_paths": [],
+        }
+    )
+
+    assert result["acceptance_criteria"].summary == "Acceptance"

@@ -55,9 +55,11 @@ def test_workflow_topology_is_sequential() -> None:
         ("__start__", "architecture_discovery"),
         ("architecture_discovery", "dependency_analysis"),
         ("dependency_analysis", "business_rules_extraction"),
+        ("dependency_analysis", "api_events_extraction"),
+        ("dependency_analysis", "nfr_extraction"),
         ("business_rules_extraction", "data_mapping_extraction"),
-        ("data_mapping_extraction", "api_events_extraction"),
-        ("api_events_extraction", "nfr_extraction"),
+        ("data_mapping_extraction", "acceptance_criteria_synthesis"),
+        ("api_events_extraction", "acceptance_criteria_synthesis"),
         ("nfr_extraction", "acceptance_criteria_synthesis"),
         ("acceptance_criteria_synthesis", "__end__"),
     }

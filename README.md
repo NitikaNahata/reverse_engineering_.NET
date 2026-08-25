@@ -21,17 +21,13 @@ Legacy .NET repository
                          ▼
                 Dependency Analysis
                          │
-                         ▼
-             Business Rules & Journeys
-                         │
-                         ▼
-              Data Mapping & SQL Design
-                         │
-                         ▼
-                API Contracts & Events
-                         │
-                         ▼
-             Non-Functional Requirements
+             ┌───────────┼───────────┐
+             ▼           ▼           ▼
+     Business Rules  API & Events   NFRs
+             │           │           │
+             ▼           │           │
+       Data Mapping      │           │
+             └───────────┴───────────┘
                          │
                          ▼
                 Acceptance Criteria
@@ -40,7 +36,11 @@ Legacy .NET repository
               outputs/requirements_report.md
 ```
 
-The extraction stages are sequential in a complete run, but every stage can also load saved prerequisite reports and run independently. Running one stage does not rerun its prerequisites.
+In a complete run, Business Rules, API & Events, and NFR extraction execute in
+parallel after Dependency Analysis. Data Mapping follows Business Rules, and
+Acceptance Criteria waits for all three branches. Every stage can also load
+saved prerequisite reports and run independently. Running one stage does not
+rerun its prerequisites.
 
 ## Project structure
 
@@ -149,7 +149,9 @@ This loads Architecture and Dependency from disk, makes one API-agent request, a
 python run_pipeline.py --stage all
 ```
 
-This runs all seven model stages from scratch. Each stage is a billable model request, and a failed validation may cause one corrective retry.
+This runs all seven model stages from scratch. The independent middle branches
+run concurrently to reduce elapsed time. Each stage is still a billable model
+request, and a failed validation may cause one corrective retry.
 
 ## Use another repository
 
